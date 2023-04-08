@@ -1,0 +1,8 @@
+[tool.ruff]
+# Extend the base project configuration
+extend = "../pyproject.toml"
+
+ignore = [
+    "D",    # Ignore docstrings for tests
+    "S101", # Allow assert statements
+]

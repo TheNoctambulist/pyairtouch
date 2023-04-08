@@ -1,0 +1,37 @@
+name: "Lint Python"
+
+on: [push]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Cache virtualenv
+        uses: actions/cache@v3
+        with:
+          path: |
+            .venv
+            .mypy_cache
+          key: ${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pdm.lock') }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pdm
+          pdm sync
+      - name: Checking formatting with ruff
+        run: |
+          pdm run ruff format --diff $(git ls-files '*.py')
+      - name: Linting with ruff
+        run: |
+          pdm run ruff check --output-format=github --no-fix $(git ls-files '*.py')
+      - name: Checking typing with mypy
+        run: |
+          pdm run mypy --strict $(git ls-files '*.py')

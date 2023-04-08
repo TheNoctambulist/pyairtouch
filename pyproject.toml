@@ -1,0 +1,66 @@
+[project]
+name = "pyairtouch"
+version = "0.1.0"
+description = "A fully typed asyncio API for the Polyaire AirTouch AC controllers"
+authors = [{ name = "TheNoctambulist", email = "thenoctambulist@zoho.com" }]
+dependencies = ["typing-extensions>=4.9.0"]
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+]
+
+[project.urls]
+Homepage = "https://github.com/thenoctambulist/pyairtouch"
+Issues = "https://github.com/thenoctambulist/pyairtouch/issues"
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.ruff]
+select = ["ALL"] # We'll disable specific rules where appropriate.
+
+ignore = [
+    "ANN101", # Don't require typing for self
+    "ANN102", # Don't require typing for cls
+    "D417",   # Don't force every argument to be documented
+    "EM101",  # raw-string-in-exception
+    "EM102",  # f-string-in-exception
+    "TRY003", # Exception messages are useful.
+    "UP007",  # typing.Optional is useful. See https://github.com/astral-sh/ruff/issues/4858
+
+    # Compatibility/redundancy with Ruff Formatter
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC001",
+    "ISC002",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+strict = true
+
+[tool.pdm]
+[tool.pdm.dev-dependencies]
+lint = ["mypy>=1.8.0", "ruff>=0.1.9"]
+test = ["pytest>=7.4.3"]
