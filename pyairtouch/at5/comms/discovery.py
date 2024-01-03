@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing_extensions import override
 
 from pyairtouch import comms
+from pyairtouch.comms import encoding
 
 PORT = 49005
 
@@ -83,10 +84,12 @@ class At5DiscoveryDecoder(
             )
 
         return At5DiscoveryResponse(
-            airtouch_id=response_raw[_PART_AIRTOUCH_ID].decode(),
-            name=response_raw[_PART_NAME].decode(),
-            serial=response_raw[_PART_SERIAL].decode(),
-            host=response_raw[_PART_HOST].decode(),
+            airtouch_id=response_raw[_PART_AIRTOUCH_ID].decode(
+                encoding=encoding.STRING_ENCODING
+            ),
+            name=response_raw[_PART_NAME].decode(encoding=encoding.STRING_ENCODING),
+            serial=response_raw[_PART_SERIAL].decode(encoding=encoding.STRING_ENCODING),
+            host=response_raw[_PART_HOST].decode(encoding=encoding.STRING_ENCODING),
         )
 
 

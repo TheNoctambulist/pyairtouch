@@ -1,48 +1,47 @@
 """Definition of the AC Ability Message (0x1FFF11).
 
-AC Ability messages report the supported abilities of ACs in the AirTouch 5
-system. The AC Ability message also provides the mapping from AC numbers to the
-corresponding zone numbers.
+AC Ability messages report the supported abilities of ACs in the AirTouch 4
+system. The AC Ability also provides the mapping from AC numbers to the
+corresponding Group numbers.
 
-To request the AC Ability an AC Ability Request must be sent to the AirTouch 5.
+To request the AC Ability and AC Ability Request must be sent to the AirTouch 5.
 Since the AC Ability Request uses the same ID as the AC Ability Message, a
-shared Encoder and Decoder are used.
+shared encoder and decoder are used.
 
 This message is a sub-message of the Extended Message.
 """  # noqa: N999
 
-import dataclasses
 import struct
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Literal
 
 from typing_extensions import override
 
 from pyairtouch import comms
-from pyairtouch.at5.comms import x1F_ext
-from pyairtouch.at5.comms.xC022_ac_ctrl import AcFanSpeedControl, AcModeControl
-from pyairtouch.comms import encoding
+from pyairtouch.at4.comms import x1F_ext
+from pyairtouch.at4.comms.x1F_ext import ExtendedMessageSubHeader
+from pyairtouch.at4.comms.x2C_ac_ctrl import AcFanSpeedControl, AcModeControl
+from pyairtouch.comms import MessageDecodeResult, encoding
 
 MESSAGE_ID = 0xFF11
 
 
-@dataclasses.dataclass
+@dataclass
 class AcAbility:
     """Encapsulates the abilities of a single air-conditioner."""
 
     ac_number: int
     ac_name: str
-    start_zone: int
-    zone_count: int
+    start_group: int
+    group_count: int
     ac_mode_support: Mapping[AcModeControl, bool]
     fan_speed_support: Mapping[AcFanSpeedControl, bool]
-    min_cool_set_point: int
-    max_cool_set_point: int
-    min_heat_set_point: int
-    max_heat_set_point: int
+    min_set_point: int
+    max_set_point: int
 
 
-@dataclasses.dataclass
+@dataclass
 class AcAbilityMessage(comms.Message):
     """The AC Ability Message."""
 
@@ -54,9 +53,9 @@ class AcAbilityMessage(comms.Message):
         return MESSAGE_ID
 
 
-@dataclasses.dataclass
+@dataclass
 class AcAbilityRequest(comms.Message):
-    """A request for AC Ability."""
+    """A request for AC Ability information."""
 
     ac_number: int | Literal["ALL"]
     """Request AC Ability information for a single AC, or all ACs."""
@@ -67,7 +66,7 @@ class AcAbilityRequest(comms.Message):
         return MESSAGE_ID
 
 
-_AC_ABILITY_STRUCT = struct.Struct("!BB16sBBBBBBBB")
+_AC_ABILITY_STRUCT = struct.Struct("!BB16sBBBBBB")
 
 
 class AcAbilityEncoder(
@@ -75,9 +74,9 @@ class AcAbilityEncoder(
         x1F_ext.ExtendedMessageSubHeader, AcAbilityMessage | AcAbilityRequest
     ]
 ):
-    """Encoder for AC Ability Messages and Requests.
+    """Encoder for the AC Ability Message and Request.
 
-    Handles both the message the the request because they share the same message ID.
+    Handles both the message and the request because the share the same message ID.
     """
 
     @override
@@ -92,19 +91,17 @@ class AcAbilityEncoder(
 
     @override
     def encode(
-        self,
-        _: x1F_ext.ExtendedMessageSubHeader,
-        msg: AcAbilityMessage | AcAbilityRequest,
+        self, hdr: ExtendedMessageSubHeader, msg: AcAbilityMessage | AcAbilityRequest
     ) -> bytes:
         if isinstance(msg, AcAbilityRequest):
             if msg.ac_number == "ALL":
-                # No Content for an "ALL" request
+                # No content for an "ALL" request
                 return b""
             return bytes([msg.ac_number])
 
         buffer = bytearray()
         for ac in msg.ac_abilities:
-            following_length = 24  # As per communication protocol
+            following_length = 22  # As per interface specification.
             encoded_ac_name = ac.ac_name.encode(encoding=encoding.STRING_ENCODING)
             b23 = self._encode_mode_support(ac.ac_mode_support)
             b24 = self._encode_fan_speed_support(ac.fan_speed_support)
@@ -114,14 +111,12 @@ class AcAbilityEncoder(
                     ac.ac_number,
                     following_length,
                     encoded_ac_name,
-                    ac.start_zone,
-                    ac.zone_count,
+                    ac.start_group,
+                    ac.group_count,
                     b23,
                     b24,
-                    ac.min_cool_set_point,
-                    ac.max_cool_set_point,
-                    ac.min_heat_set_point,
-                    ac.max_heat_set_point,
+                    ac.min_set_point,
+                    ac.max_set_point,
                 )
             )
         return buffer
@@ -146,9 +141,6 @@ class AcAbilityEncoder(
             + encoding.bool_to_bit(fan_speed_support[AcFanSpeedControl.HIGH], 4)
             + encoding.bool_to_bit(fan_speed_support[AcFanSpeedControl.POWERFUL], 5)
             + encoding.bool_to_bit(fan_speed_support[AcFanSpeedControl.TURBO], 6)
-            + encoding.bool_to_bit(
-                fan_speed_support[AcFanSpeedControl.INTELLIGENT_AUTO], 7
-            )
         )
 
 
@@ -157,15 +149,15 @@ class AcAbilityDecoder(
         x1F_ext.ExtendedMessageSubHeader, AcAbilityMessage | AcAbilityRequest
     ]
 ):
-    """Decoder for the AC Ability Message and Request.
+    """Decoder for AC Ability Message and Request.
 
-    Handles both the message and the request because they share a message ID.
+    Handles both the message and the request because they share the same message ID.
     """
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: x1F_ext.ExtendedMessageSubHeader
-    ) -> comms.MessageDecodeResult[AcAbilityMessage | AcAbilityRequest]:
+        self, buffer: bytes | bytearray, hdr: ExtendedMessageSubHeader
+    ) -> MessageDecodeResult[AcAbilityMessage | AcAbilityRequest]:
         # If there is no data, this is a request for all ACs
         if hdr.message_length == 0:
             return comms.MessageDecodeResult(
@@ -193,14 +185,12 @@ class AcAbilityDecoder(
                 ac_number,
                 _,  # Following length
                 ac_name_raw,
-                start_zone,
-                zone_count,
+                start_group,
+                group_count,
                 b23,
                 b24,
-                min_cool_set_point,
-                max_cool_set_point,
-                min_heat_set_point,
-                max_heat_set_point,
+                min_set_point,
+                max_set_point,
             ) = _AC_ABILITY_STRUCT.unpack_from(buffer)
             buffer = buffer[_AC_ABILITY_STRUCT.size :]
 
@@ -208,19 +198,17 @@ class AcAbilityDecoder(
                 AcAbility(
                     ac_number=ac_number,
                     ac_name=encoding.decode_c_string(ac_name_raw),
-                    start_zone=start_zone,
-                    zone_count=zone_count,
+                    start_group=start_group,
+                    group_count=group_count,
                     ac_mode_support=self._decode_ac_mode_support(b23),
                     fan_speed_support=self._decode_fan_speed_support(b24),
-                    min_cool_set_point=min_cool_set_point,
-                    max_cool_set_point=max_cool_set_point,
-                    min_heat_set_point=min_heat_set_point,
-                    max_heat_set_point=max_heat_set_point,
+                    min_set_point=min_set_point,
+                    max_set_point=max_set_point,
                 )
             )
 
         return comms.MessageDecodeResult(
-            message=AcAbilityMessage(ac_abilities=ac_abilities),
+            message=AcAbilityMessage(ac_abilities),
             remaining=buffer,
         )
 
@@ -245,6 +233,5 @@ class AcAbilityDecoder(
             AcFanSpeedControl.HIGH: encoding.bit_to_bool(byte24, 4),
             AcFanSpeedControl.POWERFUL: encoding.bit_to_bool(byte24, 5),
             AcFanSpeedControl.TURBO: encoding.bit_to_bool(byte24, 6),
-            AcFanSpeedControl.INTELLIGENT_AUTO: encoding.bit_to_bool(byte24, 7),
             AcFanSpeedControl.UNCHANGED: True,  # Always supported
         }

@@ -5,7 +5,9 @@ import logging
 from typing import Optional
 
 import pyairtouch.api
+import pyairtouch.at4.api as at4_api
 import pyairtouch.at4.comms.discovery as at4_discovery
+import pyairtouch.at4.comms.registry as at4_registry
 import pyairtouch.at5.api as at5_api
 import pyairtouch.at5.comms.discovery as at5_discovery
 import pyairtouch.at5.comms.registry as at5_registry
@@ -61,13 +63,25 @@ def connect(  # noqa: PLR0913
 
 
 def _connect_airtouch_4(
-    host: str,  # noqa: ARG001
-    port: int,  # noqa: ARG001
-    airtouch_id: str,  # noqa: ARG001
-    name: str,  # noqa: ARG001
-    serial: str,  # noqa: ARG001
+    host: str,
+    port: int,
+    airtouch_id: str,
+    name: str,
+    serial: str,
 ) -> pyairtouch.api.AirTouch:
-    raise NotImplementedError("AirTouch 4 protocol not implemented yet.")
+    """Connect to an AirTouch 4 console."""
+    socket = pyairtouch.comms.socket.AirTouchSocket(
+        host=host,
+        port=port,
+        registry=at4_registry.INSTANCE,
+    )
+
+    return at4_api.AirTouch4(
+        airtouch_id=airtouch_id,
+        serial=serial,
+        name=name,
+        socket=socket,
+    )
 
 
 def _connect_airtouch_5(
@@ -107,14 +121,18 @@ async def discover() -> list[pyairtouch.api.AirTouch]:
     for response in responses:
         match response:
             case at4_discovery.At4DiscoveryResponse():
-                _LOGGER.warning(
-                    "Discovered AirTouch 4 device. "
-                    "AirTouch 4 support not implemented yet."
+                airtouch_4 = _connect_airtouch_4(
+                    host=response.host,
+                    port=at4_api.DEFAULT_PORT_NUMBER,
+                    airtouch_id=response.airtouch_id,
+                    name="AirTouch 4",  # AirTouch 4 discovery doesn't include a name
+                    serial=response.serial,
                 )
+                airtouches.append(airtouch_4)
             case at5_discovery.At5DiscoveryResponse():
                 airtouch_5 = _connect_airtouch_5(
                     host=response.host,
-                    port=pyairtouch.at5.api.DEFAULT_PORT_NUMBER,
+                    port=at5_api.DEFAULT_PORT_NUMBER,
                     airtouch_id=response.airtouch_id,
                     name=response.name,
                     serial=response.serial,

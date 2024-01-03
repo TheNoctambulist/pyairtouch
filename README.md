@@ -2,8 +2,7 @@
 
 A fully typed asyncio API for the Polyaire AirTouch AC controllers.
 
-The API supports the AirTouch 5.
-AirTouch 4 support is planned, but not yet implemented.
+The API supports the AirTouch 4 and AirTouch 5.
 
 A unified public API is provided that encapsulates the underlying AirTouch version.
 
@@ -25,7 +24,7 @@ async def main() -> None:
     for airtouch in discovered_airtouches:
         print(f"Discovered: {airtouch.name} ({airtouch.host})")
 
-    # Work with the first discovered AirTouch (typically there is only one per network)
+    # In this example we use the first discovered AirTouch (typically there is only one per network)
     airtouch = discovered_airtouches[0]
 
     # Connect to the AirTouch and read initial state.
