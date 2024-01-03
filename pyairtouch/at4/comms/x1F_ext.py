@@ -1,37 +1,30 @@
-"""Definition of the Extended Message (0x1F).
+"""Definiton of the Extended Message (0x1F).
 
 Extended messages are used to obtain the available modes and fan speeds of the
-ACs, the names of zones, and error information.
-
-When sending an extended message the to address should be 0x90. When receiving
-an extended message the from address will be 0x90.
-
-This is a variant message that can contain one of several sub message types. An
-Extended sub-header is used to idenfity the sub message.
-
-To ensure uniqueness and allow sub-messages to be used alongside other message
-objects, the ID of sub-messages is prefixed with 0x1F (the ID of this message).
+ACs, and error information.
 """  # noqa: N999
 
-import dataclasses
 import struct
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any, Generic
 
 from typing_extensions import override
 
 from pyairtouch import comms
-from pyairtouch.at5.comms.hdr import At5Header
+from pyairtouch.at4.comms.hdr import At4Header
+from pyairtouch.comms import MessageDecodeResult
 
 MESSAGE_ID = 0x1F
 
 
-@dataclasses.dataclass
+@dataclass
 class ExtendedMessageSubHeader:
     """Header for sub-messages within the Extended Message."""
 
     message_id: int
-    """Id of the nested sub-message."""
+    """ID of the nexted sub-message."""
+
     message_length: int
     """Length of the sub-message in bytes.
 
@@ -39,9 +32,9 @@ class ExtendedMessageSubHeader:
     """
 
 
-@dataclasses.dataclass
+@dataclass
 class ExtendedMessage(comms.Message, Generic[comms.Msg]):
-    """An AirTouch 5 extended message."""
+    """The Extended Message."""
 
     sub_message: comms.Msg
 
@@ -59,7 +52,7 @@ class UnsupportedExtendedDecoder(
     @override
     def decode(
         self, buffer: bytes | bytearray, hdr: ExtendedMessageSubHeader
-    ) -> comms.MessageDecodeResult[comms.UnsupportedMessage]:
+    ) -> MessageDecodeResult[comms.UnsupportedMessage]:
         return comms.MessageDecodeResult(
             message=comms.UnsupportedMessage(
                 unsupported_id=hdr.message_id, raw_data=buffer[: hdr.message_length]
@@ -71,8 +64,8 @@ class UnsupportedExtendedDecoder(
 _EXTENDED_SUB_HDR_STRUCT = struct.Struct("!H")
 
 
-class ExtendedMessageEncoder(comms.MessageEncoder[At5Header, ExtendedMessage[Any]]):
-    """Encodes extended messages."""
+class ExtendedMessageEncoder(comms.MessageEncoder[At4Header, ExtendedMessage[Any]]):
+    """Encoder for extended messages."""
 
     def __init__(
         self,
@@ -86,7 +79,7 @@ class ExtendedMessageEncoder(comms.MessageEncoder[At5Header, ExtendedMessage[Any
         """
         self._encoder_map = encoder_map
 
-    def _sub_msg_encoder(
+    def _sub_message_encoder(
         self, sub_msg: comms.Msg
     ) -> comms.MessageEncoder[ExtendedMessageSubHeader, comms.Msg]:
         sub_msg_encoder = self._encoder_map.get(sub_msg.message_id)
@@ -98,28 +91,29 @@ class ExtendedMessageEncoder(comms.MessageEncoder[At5Header, ExtendedMessage[Any
 
     @override
     def size(self, msg: ExtendedMessage[comms.Msg]) -> int:
-        sub_msg_encoder = self._sub_msg_encoder(msg.sub_message)
+        sub_msg_encoder = self._sub_message_encoder(msg.sub_message)
         return _EXTENDED_SUB_HDR_STRUCT.size + sub_msg_encoder.size(msg.sub_message)
 
     @override
-    def encode(self, _: At5Header, msg: ExtendedMessage[comms.Msg]) -> bytes:
+    def encode(self, hdr: At4Header, msg: ExtendedMessage[comms.Msg]) -> bytes:
         sub_msg = msg.sub_message
-        sub_msg_encoder = self._sub_msg_encoder(msg.sub_message)
+        sub_msg_encoder = self._sub_message_encoder(sub_msg)
 
-        sub_message_id = msg.sub_message.message_id
+        sub_message_id = sub_msg.message_id
         sub_message_length = sub_msg_encoder.size(sub_msg)
 
         sub_hdr = ExtendedMessageSubHeader(
-            message_id=sub_message_id, message_length=sub_message_length
+            message_id=sub_message_id,
+            message_length=sub_message_length,
         )
 
         return _EXTENDED_SUB_HDR_STRUCT.pack(sub_message_id) + sub_msg_encoder.encode(
-            sub_hdr, sub_msg
+            hdr=sub_hdr, msg=sub_msg
         )
 
 
 class ExtendedMessageDecoder(
-    comms.MessageDecoder[At5Header, ExtendedMessage[comms.Message]]
+    comms.MessageDecoder[At4Header, ExtendedMessage[comms.Message]]
 ):
     """Decodes extended messages."""
 
@@ -128,8 +122,7 @@ class ExtendedMessageDecoder(
     def __init__(
         self,
         decoder_map: Mapping[
-            int,
-            comms.MessageDecoder[ExtendedMessageSubHeader, comms.Message],
+            int, comms.MessageDecoder[ExtendedMessageSubHeader, comms.Message]
         ],
     ) -> None:
         """Initialise the ExtendedMessageDecoder.
@@ -149,8 +142,8 @@ class ExtendedMessageDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: At5Header
-    ) -> comms.MessageDecodeResult[ExtendedMessage[comms.Message]]:
+        self, buffer: bytes | bytearray, hdr: At4Header
+    ) -> MessageDecodeResult[ExtendedMessage[comms.Message]]:
         (sub_message_id,) = _EXTENDED_SUB_HDR_STRUCT.unpack_from(buffer)
 
         sub_hdr = ExtendedMessageSubHeader(
@@ -160,7 +153,8 @@ class ExtendedMessageDecoder(
 
         sub_msg_decoder = self._sub_msg_decoder(sub_message_id)
         sub_msg_result = sub_msg_decoder.decode(
-            buffer[_EXTENDED_SUB_HDR_STRUCT.size :], sub_hdr
+            buffer=buffer[_EXTENDED_SUB_HDR_STRUCT.size :],
+            hdr=sub_hdr,
         )
         return comms.MessageDecodeResult(
             message=ExtendedMessage(sub_message=sub_msg_result.message),

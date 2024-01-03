@@ -19,6 +19,7 @@ from typing_extensions import override
 
 from pyairtouch import comms
 from pyairtouch.at5.comms import x1F_ext
+from pyairtouch.comms import encoding
 
 MESSAGE_ID = 0xFF13
 
@@ -68,7 +69,8 @@ class ZoneNamesEncoder(
         # Length calculation requires the string to be encoded twice, but we
         # don't expect to encode this message very often.
         return reduce(
-            lambda total, name: total + len(name.encode()),
+            lambda total, name: total
+            + len(name.encode(encoding=encoding.STRING_ENCODING)),
             msg.zone_names.values(),
             length_fields_size,
         )
@@ -87,7 +89,7 @@ class ZoneNamesEncoder(
         buffer = bytearray()
         for zone_number, zone_name in msg.zone_names.items():
             buffer.append(zone_number)
-            encoded_name = zone_name.encode()
+            encoded_name = zone_name.encode(encoding=encoding.STRING_ENCODING)
             buffer.append(len(encoded_name))
             buffer.extend(encoded_name)
         return buffer
@@ -129,11 +131,23 @@ class ZoneNamesDecoder(
             name_length = buffer[offset + 1]
             name_start = offset + 2
             name_end = name_start + name_length
-            zone_name = buffer[name_start:name_end].decode()
+
+            if name_end > hdr.message_length:
+                raise comms.DecodeError("Zone name exceeds message length")
+
+            zone_name = buffer[name_start:name_end].decode(
+                encoding=encoding.STRING_ENCODING
+            )
 
             zone_names[zone_number] = zone_name
 
             offset = name_end
+
+        if offset != hdr.message_length:
+            raise comms.DecodeError(
+                f"Zone names didn't consume entire message buffer. "
+                f"{hdr.message_length - offset} bytes remaining"
+            )
 
         return comms.MessageDecodeResult(
             message=ZoneNamesMessage(zone_names=zone_names),

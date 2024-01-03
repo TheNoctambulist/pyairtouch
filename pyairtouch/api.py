@@ -141,6 +141,10 @@ class Zone(Protocol):
         """The display name of the zone as configured in the AirTouch system."""
 
     @property
+    def supported_power_states(self) -> Sequence[ZonePowerState]:
+        """Set of Zone Power States supported by the zone."""
+
+    @property
     def power_state(self) -> ZonePowerState:
         """The current power state of the zone."""
 
@@ -178,6 +182,15 @@ class Zone(Protocol):
         """
 
     @property
+    def set_point_resolution(self) -> float:
+        """The resolution of the set-point for the zone.
+
+        Values returned from the set_point property will have this resolution.
+        When setting a new set-point, the requested value will be rounded to
+        this resolution.
+        """
+
+    @property
     def current_damper_percentage(self) -> int:
         """Current damper opening percentage.
 
@@ -190,10 +203,18 @@ class Zone(Protocol):
         """Whether this zone is currently acting as a spill zone."""
 
     async def set_power(self, power_control: ZonePowerState) -> None:
-        """Set a new power state for the zone."""
+        """Set a new power state for the zone.
+
+        Raises:
+            ValueError: If the zone does not support the requested power state.
+        """
 
     async def set_set_point(self, set_point: float) -> None:
         """Set a new temperature set-point for the zone.
+
+        Args:
+            set_point: The new set-point. The provided value will be rounded
+                according to set_point_resolution.
 
         Raises:
             ValueError: If the zone does not have a temperature sensor.
@@ -229,6 +250,10 @@ class AirConditioner(Protocol):
     @property
     def ac_id(self) -> int:
         """The ID of the air-conditioner."""
+
+    @property
+    def supported_power_controls(self) -> Sequence[AcPowerControl]:
+        """Set of AC Power Controls supported by the air-conditioner."""
 
     @property
     def supported_modes(self) -> Sequence[AcMode]:
@@ -267,10 +292,19 @@ class AirConditioner(Protocol):
         """
 
     @property
+    def set_point_resolution(self) -> float:
+        """The resolution of the set-point for the air-conditioner.
+
+        Values returned from the set_point property will have this resolution.
+        When setting a new set-point, the requested value will be rounded to
+        this resolution.
+        """
+
+    @property
     def min_set_point(self) -> float:
         """Minimum permitted value for the set-point of the air-conditioner.
 
-        The minimum set-point will change depending on the mode of the air-conditioner.
+        The minimum set-point may change depending on the mode of the air-conditioner.
 
         Returns:
             The minimum set-point temperature in degrees celsius.
@@ -280,7 +314,7 @@ class AirConditioner(Protocol):
     def max_set_point(self) -> float:
         """Maximum permitted value for the set-point of the air-conditioner.
 
-        The maximum set-point will change depending on the mode of the air-conditioner.
+        The maximum set-point may change depending on the mode of the air-conditioner.
 
         Returns:
             The maximum set-point temperature in degrees celsius.
@@ -295,7 +329,11 @@ class AirConditioner(Protocol):
         """The set of AirTouch zones associated with this Air-Conditioner."""
 
     async def set_power(self, power_control: AcPowerControl) -> None:
-        """Set a new power state for the air-conditioner."""
+        """Set a new power state for the air-conditioner.
+
+        Raises:
+            ValueError: If the requested power control is not supported.
+        """
 
     async def set_mode(self, mode: AcMode, *, power_on: bool = False) -> None:
         """Set a new mode for the air-conditioner.
@@ -329,6 +367,11 @@ class AirConditioner(Protocol):
         temperature sensors.
         TODO: Derive the specific conditions for when this is valid and
         provide a query to check for that state.
+
+        Args:
+            set_point: The new set-point value. The requested set-point will be
+                rounded to the `set_point_resolution` and bounded by `min_set_point`
+                and `max_set_point`.
         """
 
     def subscribe(self, subscriber: UpdateSubscriber) -> None:

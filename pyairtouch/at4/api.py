@@ -1,4 +1,5 @@
-"""Implementation of the API interfaces for the AirTouch 5."""
+"""Implementation of the API interfaces for the AirTouch 4."""
+
 import asyncio
 import contextlib
 import logging
@@ -9,109 +10,101 @@ from typing import Any, Optional
 from typing_extensions import override
 
 import pyairtouch.api
-import pyairtouch.at5.comms.hdr
-import pyairtouch.at5.comms.registry
-import pyairtouch.at5.comms.xC020_zone_ctrl as zone_ctrl_msg
-import pyairtouch.at5.comms.xC021_zone_status as zone_status_msg
-import pyairtouch.at5.comms.xC022_ac_ctrl as ac_ctrl_msg
-import pyairtouch.at5.comms.xC023_ac_status as ac_status_msg
+import pyairtouch.at4.comms.hdr
+import pyairtouch.at4.comms.registry
+import pyairtouch.at4.comms.x1F_ext as extended_msg
+import pyairtouch.at4.comms.x1FFF11_ac_ability as ac_ability_msg
+import pyairtouch.at4.comms.x1FFF12_group_names as group_names_msg
+import pyairtouch.at4.comms.x2A_group_ctrl as group_ctrl_msg
+import pyairtouch.at4.comms.x2B_group_status as group_status_msg
+import pyairtouch.at4.comms.x2C_ac_ctrl as ac_ctrl_msg
+import pyairtouch.at4.comms.x2D_ac_status as ac_status_msg
 import pyairtouch.comms.socket
-from pyairtouch.api import UpdateSubscriber
-from pyairtouch.at5.comms.x1F_ext import (
-    ExtendedMessage,
-)
-from pyairtouch.at5.comms.x1FFF11_ac_ability import (
-    AcAbility,
-    AcAbilityMessage,
-    AcAbilityRequest,
-)
-from pyairtouch.at5.comms.x1FFF13_zone_names import (
-    ZoneNamesMessage,
-    ZoneNamesRequest,
-)
-from pyairtouch.at5.comms.xC0_ctrl_status import ControlStatusMessage
+from pyairtouch.api import AcMode
 
 _LOGGER = logging.getLogger(__name__)
 
-
-# AirTouch 5 supports set-points with a resolution of 0.1 degrees.
-_SET_POINT_RESOLUTION = 0.1
+# AirTouch 4 only supports integer set-points
+_SET_POINT_RESOLUTION = 1.0
 
 _ZONE_POWER_STATE_MAPPING = {
-    zone_status_msg.ZonePowerState.OFF: pyairtouch.api.ZonePowerState.OFF,
-    zone_status_msg.ZonePowerState.ON: pyairtouch.api.ZonePowerState.ON,
-    zone_status_msg.ZonePowerState.TURBO: pyairtouch.api.ZonePowerState.TURBO,
+    group_status_msg.GroupPowerState.OFF: pyairtouch.api.ZonePowerState.OFF,
+    group_status_msg.GroupPowerState.ON: pyairtouch.api.ZonePowerState.ON,
+    group_status_msg.GroupPowerState.TURBO: pyairtouch.api.ZonePowerState.TURBO,
 }
 _API_ZONE_POWER_MAPPING = {
-    pyairtouch.api.ZonePowerState.OFF: zone_ctrl_msg.ZonePowerControl.TURN_OFF,
-    pyairtouch.api.ZonePowerState.ON: zone_ctrl_msg.ZonePowerControl.TURN_ON,
-    pyairtouch.api.ZonePowerState.TURBO: zone_ctrl_msg.ZonePowerControl.TURBO,
+    pyairtouch.api.ZonePowerState.OFF: group_ctrl_msg.GroupPowerControl.TURN_OFF,
+    pyairtouch.api.ZonePowerState.ON: group_ctrl_msg.GroupPowerControl.TURN_ON,
+    pyairtouch.api.ZonePowerState.TURBO: group_ctrl_msg.GroupPowerControl.TURBO,
 }
 _ZONE_CONTROL_METHOD_MAPPING = {
-    zone_status_msg.ZoneControlMethod.DAMPER: pyairtouch.api.ZoneControlMethod.DAMPER,
-    zone_status_msg.ZoneControlMethod.TEMP: pyairtouch.api.ZoneControlMethod.TEMP,
+    group_status_msg.GroupControlMethod.DAMPER: pyairtouch.api.ZoneControlMethod.DAMPER,
+    group_status_msg.GroupControlMethod.TEMPERATURE: (
+        pyairtouch.api.ZoneControlMethod.TEMP
+    ),
 }
 _SENSOR_BATTERY_STATUS_MAPPING = {
-    zone_status_msg.SensorBatteryStatus.NORMAL: (
+    group_status_msg.SensorBatteryStatus.NORMAL: (
         pyairtouch.api.SensorBatteryStatus.NORMAL
     ),
-    zone_status_msg.SensorBatteryStatus.LOW: pyairtouch.api.SensorBatteryStatus.LOW,
+    group_status_msg.SensorBatteryStatus.LOW: pyairtouch.api.SensorBatteryStatus.LOW,
 }
 
 
-class At5Zone(pyairtouch.api.Zone):
-    """An AirTouch 5 implementation of the Zone protocol."""
+class At4Zone(pyairtouch.api.Zone):
+    """An AirTouch 4 implementation of the Zone protocol."""
 
     def __init__(
         self,
-        zone_number: int,
+        group_number: int,
         zone_name: str,
         socket: pyairtouch.comms.socket.AirTouchSocket[
-            pyairtouch.at5.comms.hdr.At5Header
+            pyairtouch.at4.comms.hdr.At4Header
         ],
     ) -> None:
-        """Initialise an AirTouch 5 Zone.
+        """Initialise an AirTouch 4 Zone.
+
+        Zones are known as Groups in the AirTouch 4 protocol.
 
         Args:
-            zone_number: The zone ID.
+            group_number: The zone's group ID.
             zone_name: The human readable name of the zone.
-            socket: The socket for communicating with the AirTouch 5
+            socket: The socket for communicating with the AirTouch 4.
         """
         self._name = zone_name
-        self._zone_status = zone_status_msg.ZoneStatusData(
-            zone_number=zone_number,
-            power_state=zone_status_msg.ZonePowerState.OFF,
+        self._group_status = group_status_msg.GroupStatusData(
+            group_number=group_number,
+            power_state=group_status_msg.GroupPowerState.OFF,
+            control_method=group_status_msg.GroupControlMethod.DAMPER,
             spill_active=False,
-            control_method=zone_status_msg.ZoneControlMethod.DAMPER,
+            supports_turbo=False,
             has_sensor=False,
-            battery_status=zone_status_msg.SensorBatteryStatus.NORMAL,
+            battery_status=group_status_msg.SensorBatteryStatus.NORMAL,
             temperature=0.0,
             damper_percentage=0,
             set_point=None,
         )
         self._socket = socket
 
-        self._supported_power_states = list(_API_ZONE_POWER_MAPPING.keys())
-
         self._subscribers: set[pyairtouch.api.UpdateSubscriber] = set()
 
-    async def update_zone_status(
-        self, zone_status: zone_status_msg.ZoneStatusData
+    async def update_group_status(
+        self, group_status: group_status_msg.GroupStatusData
     ) -> None:
-        """Update the zone status with new data."""
-        if zone_status.zone_number != self._zone_status.zone_number:
-            raise ValueError("Invalid zone_number in updated status")
+        """Update the group status with new data."""
+        if group_status.group_number != self._group_status.group_number:
+            raise ValueError("Invalid group_number in updated status")
 
-        old_status = self._zone_status
-        self._zone_status = zone_status
+        old_status = self._group_status
+        self._group_status = group_status
 
-        if old_status != zone_status:
+        if old_status != group_status:
             await _notify_subscribers([s(self.zone_id) for s in self._subscribers])
 
     @override
     @property
     def zone_id(self) -> int:
-        return self._zone_status.zone_number
+        return self._group_status.group_number
 
     @override
     @property
@@ -121,37 +114,43 @@ class At5Zone(pyairtouch.api.Zone):
     @override
     @property
     def supported_power_states(self) -> Sequence[pyairtouch.api.ZonePowerState]:
-        return self._supported_power_states
+        supported_states = [
+            pyairtouch.api.ZonePowerState.OFF,
+            pyairtouch.api.ZonePowerState.ON,
+        ]
+        if self._group_status.supports_turbo:
+            supported_states.append(pyairtouch.api.ZonePowerState.TURBO)
+        return supported_states
 
     @override
     @property
     def power_state(self) -> pyairtouch.api.ZonePowerState:
-        return _ZONE_POWER_STATE_MAPPING[self._zone_status.power_state]
+        return _ZONE_POWER_STATE_MAPPING[self._group_status.power_state]
 
     @override
     @property
     def control_method(self) -> pyairtouch.api.ZoneControlMethod:
-        return _ZONE_CONTROL_METHOD_MAPPING[self._zone_status.control_method]
+        return _ZONE_CONTROL_METHOD_MAPPING[self._group_status.control_method]
 
     @override
     @property
     def has_temp_sensor(self) -> bool:
-        return self._zone_status.has_sensor
+        return self._group_status.has_sensor
 
     @override
     @property
     def sensor_battery_status(self) -> pyairtouch.api.SensorBatteryStatus:
-        return _SENSOR_BATTERY_STATUS_MAPPING[self._zone_status.battery_status]
+        return _SENSOR_BATTERY_STATUS_MAPPING[self._group_status.battery_status]
 
     @override
     @property
     def current_temp(self) -> Optional[float]:
-        return self._zone_status.temperature
+        return self._group_status.temperature
 
     @override
     @property
     def set_point(self) -> Optional[float]:
-        return self._zone_status.set_point
+        return self._group_status.set_point
 
     @override
     @property
@@ -161,20 +160,20 @@ class At5Zone(pyairtouch.api.Zone):
     @override
     @property
     def current_damper_percentage(self) -> int:
-        return self._zone_status.damper_percentage
+        return self._group_status.damper_percentage
 
     @override
     @property
     def spill_active(self) -> bool:
-        return self._zone_status.spill_active
+        return self._group_status.spill_active
 
     @override
     async def set_power(self, power_control: pyairtouch.api.ZonePowerState) -> None:
         if power_control not in self.supported_power_states:
             raise ValueError(f"power_control {power_control} is not supported")
 
-        await self._send_zone_control_message(
-            zone_power=_API_ZONE_POWER_MAPPING[power_control]
+        await self._send_group_control_message(
+            power=_API_ZONE_POWER_MAPPING[power_control]
         )
 
     @override
@@ -183,8 +182,11 @@ class At5Zone(pyairtouch.api.Zone):
             raise ValueError(
                 "Cannot change set-point for zones without a temperature sensor"
             )
-        await self._send_zone_control_message(
-            zone_setting=zone_ctrl_msg.ZoneSetPointControl(round(set_point, ndigits=1))
+        # We keep things simple and always change the control method to align
+        # with the requested setting.
+        await self._send_group_control_message(
+            control_method=group_ctrl_msg.GroupControlMethod.TEMPERATURE,
+            setting=group_ctrl_msg.GroupSetPointControl(set_point=round(set_point)),
         )
 
     @override
@@ -193,52 +195,47 @@ class At5Zone(pyairtouch.api.Zone):
             raise ValueError(
                 f"open_percentage {open_percentage} is out of range [0, 100]"
             )
-        await self._send_zone_control_message(
-            zone_setting=zone_ctrl_msg.ZoneDamperControl(open_percentage)
+        await self._send_group_control_message(
+            control_method=group_ctrl_msg.GroupControlMethod.DAMPER,
+            setting=group_ctrl_msg.GroupDamperControl(open_percentage),
         )
 
     @override
-    def subscribe(self, subscriber: UpdateSubscriber) -> None:
+    def subscribe(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers.add(subscriber)
 
     @override
-    def unsubscribe(self, subscriber: UpdateSubscriber) -> None:
+    def unsubscribe(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers.discard(subscriber)
 
-    async def _send_zone_control_message(
+    async def _send_group_control_message(
         self,
-        zone_power: zone_ctrl_msg.ZonePowerControl = (
-            zone_ctrl_msg.ZonePowerControl.UNCHANGED
+        power: group_ctrl_msg.GroupPowerControl = (
+            group_ctrl_msg.GroupPowerControl.UNCHANGED
         ),
-        zone_setting: zone_ctrl_msg.ZoneSetting = None,
+        control_method: group_ctrl_msg.GroupControlMethod = (
+            group_ctrl_msg.GroupControlMethod.UNCHANGED
+        ),
+        setting: group_ctrl_msg.GroupSetting = None,
     ) -> None:
-        msg = ControlStatusMessage(
-            zone_ctrl_msg.ZoneControlMessage(
-                [
-                    zone_ctrl_msg.ZoneControlData(
-                        zone_number=self.zone_id,
-                        zone_power=zone_power,
-                        zone_setting=zone_setting,
-                    )
-                ]
+        await self._socket.send(
+            group_ctrl_msg.GroupControlMessage(
+                group_number=self._group_status.group_number,
+                power=power,
+                control_method=control_method,
+                setting=setting,
             )
         )
-        await self._socket.send(msg)
 
 
 _AC_POWER_STATE_MAPPING = {
     ac_status_msg.AcPowerState.OFF: pyairtouch.api.AcPowerState.OFF,
     ac_status_msg.AcPowerState.ON: pyairtouch.api.AcPowerState.ON,
-    ac_status_msg.AcPowerState.OFF_AWAY: pyairtouch.api.AcPowerState.OFF_AWAY,
-    ac_status_msg.AcPowerState.ON_AWAY: pyairtouch.api.AcPowerState.ON_AWAY,
-    ac_status_msg.AcPowerState.SLEEP: pyairtouch.api.AcPowerState.SLEEP,
 }
 _API_POWER_CONTROL_MAPPING = {
     pyairtouch.api.AcPowerControl.TOGGLE: ac_ctrl_msg.AcPowerControl.TOGGLE,
     pyairtouch.api.AcPowerControl.TURN_OFF: ac_ctrl_msg.AcPowerControl.TURN_OFF,
     pyairtouch.api.AcPowerControl.TURN_ON: ac_ctrl_msg.AcPowerControl.TURN_ON,
-    pyairtouch.api.AcPowerControl.SET_TO_AWAY: ac_ctrl_msg.AcPowerControl.SET_TO_AWAY,
-    pyairtouch.api.AcPowerControl.SET_TO_SLEEP: ac_ctrl_msg.AcPowerControl.SET_TO_SLEEP,
 }
 _AC_MODE_MAPPING = {
     ac_status_msg.AcMode.AUTO: pyairtouch.api.AcMode.AUTO,
@@ -264,9 +261,6 @@ _AC_FAN_SPEED_MAPPING = {
     ac_status_msg.AcFanSpeed.HIGH: pyairtouch.api.AcFanSpeed.HIGH,
     ac_status_msg.AcFanSpeed.POWERFUL: pyairtouch.api.AcFanSpeed.POWERFUL,
     ac_status_msg.AcFanSpeed.TURBO: pyairtouch.api.AcFanSpeed.TURBO,
-    ac_status_msg.AcFanSpeed.INTELLIGENT_AUTO: (
-        pyairtouch.api.AcFanSpeed.INTELLIGENT_AUTO
-    ),
 }
 _API_FAN_SPEED_CONTROL_MAPPING = {
     pyairtouch.api.AcFanSpeed.AUTO: ac_ctrl_msg.AcFanSpeedControl.AUTO,
@@ -276,42 +270,37 @@ _API_FAN_SPEED_CONTROL_MAPPING = {
     pyairtouch.api.AcFanSpeed.HIGH: ac_ctrl_msg.AcFanSpeedControl.HIGH,
     pyairtouch.api.AcFanSpeed.POWERFUL: ac_ctrl_msg.AcFanSpeedControl.POWERFUL,
     pyairtouch.api.AcFanSpeed.TURBO: ac_ctrl_msg.AcFanSpeedControl.TURBO,
-    pyairtouch.api.AcFanSpeed.INTELLIGENT_AUTO: (
-        ac_ctrl_msg.AcFanSpeedControl.INTELLIGENT_AUTO
-    ),
 }
 
 
-class At5AirConditioner(pyairtouch.api.AirConditioner):
-    """An AirTouch 5 implementation of the AirConditioner protocol."""
+class At4AirConditioner(pyairtouch.api.AirConditioner):
+    """An AirTouch 4 implementation of the AirConditioner protocol."""
 
     def __init__(
         self,
         ac_id: int,
-        zones: Sequence[At5Zone],
-        ac_ability: AcAbility,
+        zones: Sequence[At4Zone],
+        ac_ability: ac_ability_msg.AcAbility,
         socket: pyairtouch.comms.socket.AirTouchSocket[
-            pyairtouch.at5.comms.hdr.At5Header
+            pyairtouch.at4.comms.hdr.At4Header
         ],
     ) -> None:
-        """Initialise an AirTouch 5 Air-Conditioner.
+        """Initialise an AirTouch 4 Air-Conditioner.
 
         Args:
             ac_id: The ID of the air-conditioner.
             zones: The AirTouch zones associated with this air-conditioner.
             ac_ability: The functions supported by this air-conditioner.
-            socket: Socket for communicating with the AirTouch 5.
+            socket: Socket for communiating with the AirTouch 4.
         """
         self._ac_status = ac_status_msg.AcStatusData(
             ac_number=ac_id,
             power_state=ac_status_msg.AcPowerState.OFF,
             mode=ac_status_msg.AcMode.AUTO,
             fan_speed=ac_status_msg.AcFanSpeed.AUTO,
-            turbo_active=False,
-            bypass_active=False,
             spill_active=False,
             timer_set=False,
-            set_point=0.0,
+            set_point=0,
             temperature=0.0,
             error_code=0,
         )
@@ -323,14 +312,14 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
         self._ac_ability = ac_ability
 
         self._supported_power_controls = list(_API_POWER_CONTROL_MAPPING.keys())
-        self._supported_modes: list[pyairtouch.api.AcMode] = [
+        self._supported_modes = [
             api_mode
             for api_mode, ac_mode in _API_MODE_CONTROL_MAPPING.items()
             if self._ac_ability.ac_mode_support[ac_mode]
         ]
-        self._supported_fan_speeds: list[pyairtouch.api.AcFanSpeed] = [
+        self._supported_fan_speeds = [
             api_fan_speed
-            for api_fan_speed, ac_fan_speed in (_API_FAN_SPEED_CONTROL_MAPPING.items())
+            for api_fan_speed, ac_fan_speed in _API_FAN_SPEED_CONTROL_MAPPING.items()
             if self._ac_ability.fan_speed_support[ac_fan_speed]
         ]
 
@@ -408,42 +397,18 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
     @override
     @property
     def min_set_point(self) -> float:
-        match self._ac_status.mode:
-            case ac_status_msg.AcMode.HEAT:
-                return self._ac_ability.min_heat_set_point
-            case ac_status_msg.AcMode.COOL:
-                return self._ac_ability.min_cool_set_point
-            case _:
-                # Really only for the auto modes, but also used for modes that
-                # don't support set_points.
-                return min(
-                    self._ac_ability.min_heat_set_point,
-                    self._ac_ability.min_cool_set_point,
-                )
+        return self._ac_ability.min_set_point
 
     @override
     @property
     def max_set_point(self) -> float:
-        match self._ac_status.mode:
-            case ac_status_msg.AcMode.HEAT:
-                return self._ac_ability.max_heat_set_point
-            case ac_status_msg.AcMode.COOL:
-                return self._ac_ability.max_cool_set_point
-            case _:
-                # Really only for the auto modes, but also used for modes that
-                # don't support set_points.
-                return max(
-                    self._ac_ability.max_heat_set_point,
-                    self._ac_ability.max_cool_set_point,
-                )
+        return self._ac_ability.max_set_point
 
     @override
     @property
     def spill_state(self) -> pyairtouch.api.AcSpillState:
         if self._ac_status.spill_active:
             return pyairtouch.api.AcSpillState.SPILL
-        if self._ac_status.bypass_active:
-            return pyairtouch.api.AcSpillState.BYPASS
         return pyairtouch.api.AcSpillState.NONE
 
     @override
@@ -461,9 +426,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
         )
 
     @override
-    async def set_mode(
-        self, mode: pyairtouch.api.AcMode, power_on: bool = False
-    ) -> None:
+    async def set_mode(self, mode: AcMode, *, power_on: bool = False) -> None:
         if mode not in self._supported_modes:
             raise ValueError(f"mode {mode} is not a supported mode")
 
@@ -486,28 +449,30 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
 
     @override
     async def set_set_point(self, set_point: float) -> None:
-        # Round to the correct resolution.
-        rounded_set_point = round(set_point, ndigits=1)
+        # Round to the correct resolution
+        rounded_set_point = round(set_point)
+        rounded_min = round(self.min_set_point)
+        rounded_max = round(self.max_set_point)
         # Clip the set-point to remain with the min/max values.
-        clipped_set_point = min(
-            max(self.min_set_point, rounded_set_point), self.max_set_point
+        clipped_set_point = min(max(rounded_min, rounded_set_point), rounded_max)
+        await self._send_ac_control_message(
+            set_point_control=ac_ctrl_msg.AcSetPointValue(clipped_set_point)
         )
-        await self._send_ac_control_message(set_point=clipped_set_point)
 
     @override
-    def subscribe(self, subscriber: UpdateSubscriber) -> None:
+    def subscribe(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers.add(subscriber)
 
     @override
-    def unsubscribe(self, subscriber: UpdateSubscriber) -> None:
+    def unsubscribe(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers.discard(subscriber)
 
     @override
-    def subscribe_ac_state(self, subscriber: UpdateSubscriber) -> None:
+    def subscribe_ac_state(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers_ac_state.add(subscriber)
 
     @override
-    def unsubscribe_ac_state(self, subscriber: UpdateSubscriber) -> None:
+    def unsubscribe_ac_state(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers_ac_state.discard(subscriber)
 
     async def _zone_updated(self, _: int) -> None:
@@ -521,43 +486,38 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
         fan_speed: ac_ctrl_msg.AcFanSpeedControl = (
             ac_ctrl_msg.AcFanSpeedControl.UNCHANGED
         ),
-        set_point: Optional[float] = None,
+        set_point_control: ac_ctrl_msg.AcSetPointControl = None,
     ) -> None:
-        msg = ControlStatusMessage(
+        await self._socket.send(
             ac_ctrl_msg.AcControlMessage(
-                [
-                    ac_ctrl_msg.AcControlData(
-                        ac_number=self.ac_id,
-                        power=power,
-                        mode=mode,
-                        fan_speed=fan_speed,
-                        set_point=set_point,
-                    )
-                ]
+                ac_number=self.ac_id,
+                power=power,
+                mode=mode,
+                fan_speed=fan_speed,
+                set_point_control=set_point_control,
             )
         )
-        await self._socket.send(msg)
 
 
 class _AirTouchState(Enum):
     CLOSED = auto()
     CONNECTING = auto()
-    INIT_ZONE_NAMES = auto()
+    INIT_GROUP_NAMES = auto()
     INIT_AC_ABILITY = auto()
     INIT_AC_STATUS = auto()
-    INIT_ZONE_STATUS = auto()
+    INIT_GROUP_STATUS = auto()
     CONNECTED = auto()
 
 
-DEFAULT_PORT_NUMBER = 9005
+DEFAULT_PORT_NUMBER = 9004
 """Default port number for communicating with the AirTouch controller.
 
 This port number is statically defined within the interface specification.
 """
 
 
-class AirTouch5(pyairtouch.api.AirTouch):
-    """The main entrypoint for the AirTouch 5 API."""
+class AirTouch4(pyairtouch.api.AirTouch):
+    """The main entrypoint for the AirTouch 4 API."""
 
     def __init__(
         self,
@@ -565,17 +525,17 @@ class AirTouch5(pyairtouch.api.AirTouch):
         serial: str,
         name: str,
         socket: pyairtouch.comms.socket.AirTouchSocket[
-            pyairtouch.at5.comms.hdr.At5Header
+            pyairtouch.at4.comms.hdr.At4Header
         ],
     ) -> None:
-        """Initialise the AirTouch 5 object.
+        """Initialise the AirTouch 4 object.
 
         Args:
             airtouch_id: The ID of the primary AirTouch controller.
             serial: The serial number for the primary AirTouch controller.
             name: The human readable name for the AirTouch system.
             socket: The socket for communicating with the AirTouch.
-                This class will take over ownership of the socket to manage the
+                This class will take over ownership of the socket to mange the
                 connection state.
         """
         self._airtouch_id = airtouch_id
@@ -583,8 +543,8 @@ class AirTouch5(pyairtouch.api.AirTouch):
         self._name = name
         self._socket = socket
 
-        self._air_conditioners: dict[int, At5AirConditioner] = {}
-        self._zones: dict[int, At5Zone] = {}
+        self._air_conditioners: dict[int, At4AirConditioner] = {}
+        self._zones: dict[int, At4Zone] = {}
 
         self._state = _AirTouchState.CLOSED
         self._initialised_event = asyncio.Event()
@@ -633,7 +593,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
     @override
     @property
     def version(self) -> pyairtouch.api.AirTouchVersion:
-        return pyairtouch.api.AirTouchVersion.VERSION_5
+        return pyairtouch.api.AirTouchVersion.VERSION_4
 
     @override
     @property
@@ -642,82 +602,80 @@ class AirTouch5(pyairtouch.api.AirTouch):
 
     async def _connection_changed(self, *, connected: bool) -> None:
         if connected and self._state == _AirTouchState.CONNECTING:
-            # Move into the INIT_ZONE_NAMES state by sending a ZoneNamesRequest
-            self._state = _AirTouchState.INIT_ZONE_NAMES
-            zone_names_request = ExtendedMessage(ZoneNamesRequest(zone_number="ALL"))
-            await self._socket.send(zone_names_request)
+            # Move into the INIT_GROUP_NAMES state by sending a GroupNamesRequest
+            self._state = _AirTouchState.INIT_GROUP_NAMES
+            group_names_request = extended_msg.ExtendedMessage(
+                group_names_msg.GroupNamesRequest(group_number="ALL")
+            )
+            await self._socket.send(group_names_request)
 
     async def _message_received(
-        self,
-        _: pyairtouch.at5.comms.hdr.At5Header,
-        message: pyairtouch.comms.Message,
+        self, _: pyairtouch.at4.comms.hdr.At4Header, message: pyairtouch.comms.Message
     ) -> None:
-        # Process messages according to the current state.
-        # Unhandled messages are silently ignored.
+        # Process messages according to the current state
         match message:
-            case ExtendedMessage(ZoneNamesMessage(zone_names)) if (
-                self._state == _AirTouchState.INIT_ZONE_NAMES
-            ):
-                self._process_zone_names_message(zone_names)
+            case extended_msg.ExtendedMessage(
+                group_names_msg.GroupNamesMessage(group_names)
+            ) if (self._state == _AirTouchState.INIT_GROUP_NAMES):
+                self._process_group_names_message(group_names)
                 # Move to the next state
                 self._state = _AirTouchState.INIT_AC_ABILITY
-                ability_request = ExtendedMessage(AcAbilityRequest(ac_number="ALL"))
+                ability_request = extended_msg.ExtendedMessage(
+                    ac_ability_msg.AcAbilityRequest(ac_number="ALL")
+                )
                 await self._socket.send(ability_request)
 
-            case ExtendedMessage(AcAbilityMessage(ac_abilities)) if (
-                self._state == _AirTouchState.INIT_AC_ABILITY
-            ):
+            case extended_msg.ExtendedMessage(
+                ac_ability_msg.AcAbilityMessage(ac_abilities)
+            ) if (self._state == _AirTouchState.INIT_AC_ABILITY):
                 self._process_ac_ability_message(ac_abilities)
                 # Move to the next state
                 self._state = _AirTouchState.INIT_AC_STATUS
-                ac_status_request = ControlStatusMessage(
-                    ac_status_msg.AcStatusRequest()
-                )
-                await self._socket.send(ac_status_request)
+                await self._socket.send(ac_status_msg.AcStatusRequest())
 
-            case ControlStatusMessage(ac_status_msg.AcStatusMessage(ac_statuses)) if (
+            case ac_status_msg.AcStatusMessage(ac_statuses) if (
                 self._state == _AirTouchState.INIT_AC_STATUS
             ):
                 await self._process_ac_status_message(ac_statuses)
                 # Move to the next state
-                self._state = _AirTouchState.INIT_ZONE_STATUS
-                zone_status_request = ControlStatusMessage(
-                    zone_status_msg.ZoneStatusRequest()
-                )
-                await self._socket.send(zone_status_request)
+                self._state = _AirTouchState.INIT_GROUP_STATUS
+                await self._socket.send(group_status_msg.GroupStatusRequest())
 
-            case ControlStatusMessage(
-                zone_status_msg.ZoneStatusMessage(zone_statuses)
-            ) if self._state == _AirTouchState.INIT_ZONE_STATUS:
-                await self._process_zone_status_message(zone_statuses)
+            case group_status_msg.GroupStatusMessage(groups) if (
+                self._state == _AirTouchState.INIT_GROUP_STATUS
+            ):
+                await self._process_group_status_message(groups)
                 # Move to the next state
                 self._state = _AirTouchState.CONNECTED
                 self._initialised_event.set()
 
-            case ControlStatusMessage(ac_status_msg.AcStatusMessage(ac_statuses)) if (
+            case ac_status_msg.AcStatusMessage(ac_statues) if (
                 self._state == _AirTouchState.CONNECTED
             ):
-                await self._process_ac_status_message(ac_statuses)
+                await self._process_ac_status_message(ac_statues)
 
-            case ControlStatusMessage(
-                zone_status_msg.ZoneStatusMessage(zone_statuses)
-            ) if self._state == _AirTouchState.CONNECTED:
-                await self._process_zone_status_message(zone_statuses)
+            case group_status_msg.GroupStatusMessage(groups) if (
+                self._state == _AirTouchState.CONNECTED
+            ):
+                await self._process_group_status_message(groups)
 
-    def _process_zone_names_message(self, zone_names: Mapping[int, str]) -> None:
-        for zone_number, zone_name in zone_names.items():
-            self._zones[zone_number] = At5Zone(
-                zone_number=zone_number,
-                zone_name=zone_name,
+    def _process_group_names_message(self, group_names: Mapping[int, str]) -> None:
+        for group_number, group_name in group_names.items():
+            self._zones[group_number] = At4Zone(
+                group_number=group_number,
+                zone_name=group_name,
                 socket=self._socket,
             )
 
-    def _process_ac_ability_message(self, ac_abilities: Sequence[AcAbility]) -> None:
+    def _process_ac_ability_message(
+        self, ac_abilities: Sequence[ac_ability_msg.AcAbility]
+    ) -> None:
         for ac in ac_abilities:
             ac_zones = [
-                self._zones[zone_id] for zone_id in range(ac.start_zone, ac.zone_count)
+                self._zones[zone_id]
+                for zone_id in range(ac.start_group, ac.group_count)
             ]
-            self._air_conditioners[ac.ac_number] = At5AirConditioner(
+            self._air_conditioners[ac.ac_number] = At4AirConditioner(
                 ac_id=ac.ac_number,
                 zones=ac_zones,
                 ac_ability=ac,
@@ -725,25 +683,25 @@ class AirTouch5(pyairtouch.api.AirTouch):
             )
 
     async def _process_ac_status_message(
-        self, ac_statuses: Sequence[ac_status_msg.AcStatusData]
+        self, ac_statues: Sequence[ac_status_msg.AcStatusData]
     ) -> None:
-        for ac_status in ac_statuses:
+        for ac_status in ac_statues:
             ac_instance = self._air_conditioners.get(ac_status.ac_number)
             if ac_instance:
                 await ac_instance.update_ac_status(ac_status)
             else:
                 _LOGGER.warning("Unknown AC in AC Status: %d", ac_status.ac_number)
 
-    async def _process_zone_status_message(
-        self, zone_statuses: Sequence[zone_status_msg.ZoneStatusData]
+    async def _process_group_status_message(
+        self, groups: Sequence[group_status_msg.GroupStatusData]
     ) -> None:
-        for zone_status in zone_statuses:
-            zone_instance = self._zones.get(zone_status.zone_number)
+        for group_status in groups:
+            zone_instance = self._zones.get(group_status.group_number)
             if zone_instance:
-                await zone_instance.update_zone_status(zone_status)
+                await zone_instance.update_group_status(group_status)
             else:
                 _LOGGER.warning(
-                    "Unknown Zone in Zone Status: %d", zone_status.zone_number
+                    "Unknown Group in Group Status: %d", group_status.group_number
                 )
 
 

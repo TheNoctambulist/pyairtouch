@@ -17,6 +17,7 @@ from typing_extensions import override
 
 from pyairtouch import comms
 from pyairtouch.at5.comms import x1F_ext
+from pyairtouch.comms import encoding
 
 MESSAGE_ID = 0xFF30
 
@@ -65,7 +66,7 @@ class ConsoleVersionEncoder(
             return 0
         # Length calculation requires the string to be encoded twice, but we
         # don't expect to encode this message very often.
-        return 2 + len(",".join(msg.versions).encode())
+        return 2 + len(",".join(msg.versions).encode(encoding=encoding.STRING_ENCODING))
 
     @override
     def encode(
@@ -78,7 +79,9 @@ class ConsoleVersionEncoder(
 
         buffer = bytearray()
         buffer.append(1 if msg.update_available else 0)
-        encoded_versions = ",".join(msg.versions).encode()
+        encoded_versions = ",".join(msg.versions).encode(
+            encoding=encoding.STRING_ENCODING
+        )
         buffer.append(len(encoded_versions))
         buffer.extend(encoded_versions)
         return buffer
@@ -110,7 +113,9 @@ class ConsoleVersionDecoder(
         version_length = buffer[1]
         version_start = 2
         version_end = version_start + version_length
-        versions = buffer[version_start:version_end].decode()
+        versions = buffer[version_start:version_end].decode(
+            encoding=encoding.STRING_ENCODING
+        )
 
         return comms.MessageDecodeResult(
             message=ConsoleVersionMessage(

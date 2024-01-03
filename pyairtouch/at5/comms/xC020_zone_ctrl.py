@@ -35,10 +35,13 @@ class ZonePowerControl(enum.Enum):
 
 
 class ZoneIncreaseDecrease(enum.Enum):
-    """Increase or decrease the current zone set-point by one degree celsius.
+    """Increase or decrease the current zone setting by one unit.
 
-    If the zone is currently in damper control, increase or decrease the current
-    open percentage by 5% instead.
+    If the zone is currently in temperature control, the set-point will be
+    increased/decreased by one degree celsius.
+
+    If the zone is currently in damper control, the current open percentage
+    will by increased/decreased by 5%.
     """
 
     DECREASE = 2
