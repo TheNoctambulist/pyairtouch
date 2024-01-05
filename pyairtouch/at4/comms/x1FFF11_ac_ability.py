@@ -172,13 +172,6 @@ class AcAbilityDecoder(
                 remaining=buffer[1:],
             )
 
-        # Otherwise decode ability information for one or more ACs:
-        if hdr.message_length % _AC_ABILITY_STRUCT.size != 0:
-            raise comms.DecodeError(
-                f"Data length ({hdr.message_length}) is not a multiple of "
-                f"AC Ability information length ({_AC_ABILITY_STRUCT.size})"
-            )
-
         ac_abilities: list[AcAbility] = []
         offset = 0
         while (offset + _AC_ABILITY_STRUCT.size) <= hdr.message_length:
