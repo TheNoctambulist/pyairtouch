@@ -14,7 +14,7 @@ from pyairtouch.comms import HeaderDecodeResult, HeaderEncodeResult
 
 ADDRESS_AIRTOUCH = 0x80
 ADDRESS_AIRTOUCH_EXTENDED = 0x90
-ADDRESS_CLIENT = 0x80
+ADDRESS_CLIENT = 0xB0
 """Known addresses for communication with the AirTouch 4.
 
 The AirTouch console address is different depending on whether a normal message

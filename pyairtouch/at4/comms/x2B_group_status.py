@@ -22,7 +22,7 @@ from pyairtouch.at4.comms import utils
 from pyairtouch.at4.comms.hdr import At4Header
 from pyairtouch.comms import MessageDecodeResult, encoding
 
-MESSAGE_ID = 0x2A
+MESSAGE_ID = 0x2B
 
 
 class GroupPowerState(enum.Enum):
