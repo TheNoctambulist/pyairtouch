@@ -1,0 +1,29 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create a draft release
+      id-token: write # Required to publish to PyPI
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set version number
+        run: |
+          version="${{ github.REF_NAME }}"
+          # Strip the "v" prefix
+          version=${version#v}
+          sed -i "s/\"0.0.0\"/\"${version}\"/" pyproject.toml
+      - uses: pdm-project/setup-pdm@v3
+      - name: Publish
+        run: pdm publish
+      - uses: ncipollo/release-action@v1
+        with:
+          name: "Release ${{ github.REF_NAME }}"
+          draft: true
+          artifacts: "dist/*"

@@ -1,6 +1,6 @@
 [project]
 name = "pyairtouch"
-version = "0.1.0"
+version = "0.0.0" # Version is set by the release workflow
 description = "A fully typed asyncio API for the Polyaire AirTouch AC controllers"
 authors = [{ name = "TheNoctambulist", email = "thenoctambulist@zoho.com" }]
 dependencies = ["typing-extensions>=4.9.0"]
@@ -10,7 +10,9 @@ license = { text = "MIT" }
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Framework :: AsyncIO",
     "Typing :: Typed",
     "Operating System :: OS Independent",

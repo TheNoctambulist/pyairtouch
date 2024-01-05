@@ -1,5 +1,11 @@
 # pyairtouch
 
+![PyPI - Version](https://img.shields.io/pypi/v/pyairtouch)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pyairtouch)
+![PyPI - License](https://img.shields.io/pypi/l/pyairtouch)
+![Tests Status](https://img.shields.io/github/actions/workflow/status/TheNoctambulist/pyairtouch/test.yml?label=tests)
+
+
 A fully typed asyncio API for the Polyaire AirTouch AC controllers.
 
 The API supports the AirTouch 4 and AirTouch 5.
@@ -58,3 +64,10 @@ async def main() -> None:
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+## Say Thank You
+If you would like to make a donation as appreciation of my work, please use one of the links below:
+
+<a href="https://coindrop.to/thenoctambulist" target="_blank"><img src="https://coindrop.to/embed-button.png" style="border-radius: 10px; height: 57px !important;width: 229px !important;" alt="Coindrop.to me"/></a>
+<a href="https://www.buymeacoffee.com/thenoctambulist" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-blue.png" style="border-radius: 10px; margin-left: 25px" alt="Buy Me A Coffee" height="57px" width="242px"/></a>
+
