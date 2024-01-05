@@ -252,6 +252,10 @@ class AirConditioner(Protocol):
         """The ID of the air-conditioner."""
 
     @property
+    def name(self) -> str:
+        """Display name of the air-conditioner as configured in the AirTouch system."""
+
+    @property
     def supported_power_controls(self) -> Sequence[AcPowerControl]:
         """Set of AC Power Controls supported by the air-conditioner."""
 

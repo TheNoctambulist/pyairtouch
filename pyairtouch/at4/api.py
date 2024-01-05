@@ -351,6 +351,11 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
 
     @override
     @property
+    def name(self) -> str:
+        return self._ac_ability.ac_name
+
+    @override
+    @property
     def supported_power_controls(self) -> Sequence[pyairtouch.api.AcPowerControl]:
         return self._supported_power_controls
 
