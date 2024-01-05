@@ -180,10 +180,11 @@ class AcAbilityDecoder(
             )
 
         ac_abilities: list[AcAbility] = []
-        for _ in range(hdr.message_length // _AC_ABILITY_STRUCT.size):
+        offset = 0
+        while (offset + _AC_ABILITY_STRUCT.size) <= hdr.message_length:
             (
                 ac_number,
-                _,  # Following length
+                following_length,
                 ac_name_raw,
                 start_group,
                 group_count,
@@ -191,8 +192,13 @@ class AcAbilityDecoder(
                 b24,
                 min_set_point,
                 max_set_point,
-            ) = _AC_ABILITY_STRUCT.unpack_from(buffer)
-            buffer = buffer[_AC_ABILITY_STRUCT.size :]
+            ) = _AC_ABILITY_STRUCT.unpack_from(buffer, offset=offset)
+
+            # Sometimes the AirTouch 4 seems to send more bytes, so use the
+            # following_length to work out the offset for the next AC. Two bytes
+            # are added to account for the AC number and the following length
+            # field itself.
+            offset += 2 + following_length
 
             ac_abilities.append(
                 AcAbility(
@@ -207,9 +213,14 @@ class AcAbilityDecoder(
                 )
             )
 
+        if offset != hdr.message_length:
+            raise comms.DecodeError(
+                f"AC Ability only decoded {offset} bytes out of {hdr.message_length}"
+            )
+
         return comms.MessageDecodeResult(
             message=AcAbilityMessage(ac_abilities),
-            remaining=buffer,
+            remaining=buffer[offset:],
         )
 
     def _decode_ac_mode_support(self, byte23: int) -> Mapping[AcModeControl, bool]:
