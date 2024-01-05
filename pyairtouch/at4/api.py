@@ -612,7 +612,8 @@ class AirTouch4(pyairtouch.api.AirTouch):
     async def _message_received(
         self, _: pyairtouch.at4.comms.hdr.At4Header, message: pyairtouch.comms.Message
     ) -> None:
-        # Process messages according to the current state
+        # Process messages according to the current state.
+        # Unhandled messages are silently ignored.
         match message:
             case extended_msg.ExtendedMessage(
                 group_names_msg.GroupNamesMessage(group_names)
@@ -671,10 +672,15 @@ class AirTouch4(pyairtouch.api.AirTouch):
         self, ac_abilities: Sequence[ac_ability_msg.AcAbility]
     ) -> None:
         for ac in ac_abilities:
-            ac_zones = [
-                self._zones[zone_id]
-                for zone_id in range(ac.start_group, ac.group_count)
-            ]
+            if len(ac_abilities) == 1:
+                # As per the communication protocol, if there's only one AC then
+                # all zones belong to it.
+                ac_zones = list(self._zones.values())
+            else:
+                ac_zones = [
+                    self._zones[zone_id]
+                    for zone_id in range(ac.start_group, ac.group_count)
+                ]
             self._air_conditioners[ac.ac_number] = At4AirConditioner(
                 ac_id=ac.ac_number,
                 zones=ac_zones,

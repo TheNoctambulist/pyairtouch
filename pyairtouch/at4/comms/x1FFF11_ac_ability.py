@@ -35,6 +35,10 @@ class AcAbility:
     ac_name: str
     start_group: int
     group_count: int
+    """If there is only one AC, the start_group and group_count are invalid.
+
+    If there is only one AC, all groups belong to that single AC.
+    """
     ac_mode_support: Mapping[AcModeControl, bool]
     fan_speed_support: Mapping[AcFanSpeedControl, bool]
     min_set_point: int
@@ -172,13 +176,6 @@ class AcAbilityDecoder(
                 remaining=buffer[1:],
             )
 
-        # Otherwise decode ability information for one or more ACs:
-        if hdr.message_length % _AC_ABILITY_STRUCT.size != 0:
-            raise comms.DecodeError(
-                f"Data length ({hdr.message_length}) is not a multiple of "
-                f"AC Ability information length ({_AC_ABILITY_STRUCT.size})"
-            )
-
         ac_abilities: list[AcAbility] = []
         offset = 0
         while (offset + _AC_ABILITY_STRUCT.size) <= hdr.message_length:
@@ -194,7 +191,7 @@ class AcAbilityDecoder(
                 max_set_point,
             ) = _AC_ABILITY_STRUCT.unpack_from(buffer, offset=offset)
 
-            # Sometimes the AirTouch 4 seems to send more bytes, so use the
+            # Newer versions of the AirTouch 4 seem to send more bytes, so use the
             # following_length to work out the offset for the next AC. Two bytes
             # are added to account for the AC number and the following length
             # field itself.
