@@ -14,10 +14,10 @@ shared Encoder and Decoder are used.
 This message is a sub-message of the Control Command and Status Message.
 """  # noqa: N999
 
-import dataclasses
 import enum
 import struct
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from typing_extensions import override
 
@@ -63,7 +63,7 @@ class AcFanSpeed(enum.Enum):
     INTELLIGENT_AUTO = 9  # 9 to 14
 
 
-@dataclasses.dataclass
+@dataclass
 class AcStatusData:
     """Status data for a single air-conditioner."""
 
@@ -89,7 +89,7 @@ class AcStatusData:
         return self.error_code != 0
 
 
-@dataclasses.dataclass
+@dataclass
 class AcStatusMessage(comms.Message):
     """The AC Status Message."""
 
@@ -101,7 +101,7 @@ class AcStatusMessage(comms.Message):
         return MESSAGE_ID
 
 
-@dataclasses.dataclass
+@dataclass
 class AcStatusRequest(comms.Message):
     """Request for AC Status."""
 
@@ -111,7 +111,7 @@ class AcStatusRequest(comms.Message):
         return MESSAGE_ID
 
 
-_AC_STATUS_STRUCT = struct.Struct("!BBBBHHxx")
+_STRUCT = struct.Struct("!BBBBHHxx")
 
 _BYTE4_UNUSED_BITS = 0b11000000  # From the example messages and as per real messages
 
@@ -125,34 +125,34 @@ class AcStatusEncoder(
     """
 
     @override
-    def non_repeat_size(self, msg: AcStatusMessage | AcStatusRequest) -> int:
+    def non_repeat_size(self, message: AcStatusMessage | AcStatusRequest) -> int:
         # No non-repeating data
         return 0
 
     @override
-    def repeat_count(self, msg: AcStatusMessage | AcStatusRequest) -> int:
-        if isinstance(msg, AcStatusRequest):
+    def repeat_count(self, message: AcStatusMessage | AcStatusRequest) -> int:
+        if isinstance(message, AcStatusRequest):
             return 0
-        return len(msg.ac_status)
+        return len(message.ac_status)
 
     @override
-    def repeat_size(self, msg: AcStatusMessage | AcStatusRequest) -> int:
-        if isinstance(msg, AcStatusRequest):
+    def repeat_size(self, message: AcStatusMessage | AcStatusRequest) -> int:
+        if isinstance(message, AcStatusRequest):
             return 0
-        return _AC_STATUS_STRUCT.size
+        return _STRUCT.size
 
     @override
     def encode(
         self,
         _: xC0_ctrl_status.ControlStatusSubHeader,
-        msg: AcStatusMessage | AcStatusRequest,
+        message: AcStatusMessage | AcStatusRequest,
     ) -> bytes:
-        if isinstance(msg, AcStatusRequest):
+        if isinstance(message, AcStatusRequest):
             # AcStatusRequest has no content
             return b""
 
         buffer = bytearray()
-        for ac in msg.ac_status:
+        for ac in message.ac_status:
             encoded_ac_number = self._encode_ac_number(ac.ac_number)
             encoded_power_state = self._encode_power_state(ac.power_state)
             encoded_mode = self._encode_mode(ac.mode)
@@ -175,7 +175,7 @@ class AcStatusEncoder(
             )
 
             buffer.extend(
-                _AC_STATUS_STRUCT.pack(
+                _STRUCT.pack(
                     b1, b2, encoded_set_point, b4, encoded_temperature, ac.error_code
                 )
             )
@@ -216,24 +216,24 @@ class AcStatusDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: xC0_ctrl_status.ControlStatusSubHeader
+        self, buffer: bytes | bytearray, header: xC0_ctrl_status.ControlStatusSubHeader
     ) -> comms.MessageDecodeResult[AcStatusMessage | AcStatusRequest]:
         # If there is no data, this is a request for AC Status
-        if hdr.repeat_count == 0 and hdr.repeat_length == 0:
+        if header.repeat_count == 0 and header.repeat_length == 0:
             return comms.MessageDecodeResult(
                 message=AcStatusRequest(),
                 remaining=buffer,
             )
 
         # Otherwise decode AC Status information for each AC:
-        if hdr.repeat_length != _AC_STATUS_STRUCT.size:
+        if header.repeat_length != _STRUCT.size:
             raise comms.DecodeError(
-                f"Header repeat_length ({hdr.repeat_length}) != "
-                f"AC Status Data size ({_AC_STATUS_STRUCT.size})"
+                f"Header repeat_length ({header.repeat_length}) != "
+                f"AC Status Data size ({_STRUCT.size})"
             )
 
         acs: list[AcStatusData] = []
-        for _ in range(hdr.repeat_count):
+        for _ in range(header.repeat_count):
             (
                 b1,
                 b2,
@@ -241,7 +241,7 @@ class AcStatusDecoder(
                 b4,
                 temp_raw,
                 error_code,
-            ) = _AC_STATUS_STRUCT.unpack_from(buffer)
+            ) = _STRUCT.unpack_from(buffer)
             acs.append(
                 AcStatusData(
                     ac_number=self._decode_ac_number(b1),
@@ -257,7 +257,7 @@ class AcStatusDecoder(
                     error_code=error_code,
                 )
             )
-            buffer = buffer[_AC_STATUS_STRUCT.size :]
+            buffer = buffer[_STRUCT.size :]
 
         return comms.MessageDecodeResult(
             message=AcStatusMessage(acs),

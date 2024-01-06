@@ -51,17 +51,18 @@ class UnsupportedExtendedDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: ExtendedMessageSubHeader
+        self, buffer: bytes | bytearray, header: ExtendedMessageSubHeader
     ) -> MessageDecodeResult[comms.UnsupportedMessage]:
         return comms.MessageDecodeResult(
             message=comms.UnsupportedMessage(
-                unsupported_id=hdr.message_id, raw_data=buffer[: hdr.message_length]
+                unsupported_id=header.message_id,
+                raw_data=buffer[: header.message_length],
             ),
-            remaining=buffer[hdr.message_length :],
+            remaining=buffer[header.message_length :],
         )
 
 
-_EXTENDED_SUB_HDR_STRUCT = struct.Struct("!H")
+_SUB_HEADER_STRUCT = struct.Struct("!H")
 
 
 class ExtendedMessageEncoder(comms.MessageEncoder[At4Header, ExtendedMessage[Any]]):
@@ -80,35 +81,35 @@ class ExtendedMessageEncoder(comms.MessageEncoder[At4Header, ExtendedMessage[Any
         self._encoder_map = encoder_map
 
     def _sub_message_encoder(
-        self, sub_msg: comms.Msg
+        self, sub_message: comms.Msg
     ) -> comms.MessageEncoder[ExtendedMessageSubHeader, comms.Msg]:
-        sub_msg_encoder = self._encoder_map.get(sub_msg.message_id)
-        if not sub_msg_encoder:
+        sub_message_encoder = self._encoder_map.get(sub_message.message_id)
+        if not sub_message_encoder:
             raise NotImplementedError(
-                f"Encoding of sub-message 0x{sub_msg.message_id:02x} not implemented."
+                f"Sub-message 0x{sub_message.message_id:02x} not implemented."
             )
-        return sub_msg_encoder
+        return sub_message_encoder
 
     @override
-    def size(self, msg: ExtendedMessage[comms.Msg]) -> int:
-        sub_msg_encoder = self._sub_message_encoder(msg.sub_message)
-        return _EXTENDED_SUB_HDR_STRUCT.size + sub_msg_encoder.size(msg.sub_message)
+    def size(self, message: ExtendedMessage[comms.Msg]) -> int:
+        sub_message_encoder = self._sub_message_encoder(message.sub_message)
+        return _SUB_HEADER_STRUCT.size + sub_message_encoder.size(message.sub_message)
 
     @override
-    def encode(self, hdr: At4Header, msg: ExtendedMessage[comms.Msg]) -> bytes:
-        sub_msg = msg.sub_message
-        sub_msg_encoder = self._sub_message_encoder(sub_msg)
+    def encode(self, header: At4Header, message: ExtendedMessage[comms.Msg]) -> bytes:
+        sub_message = message.sub_message
+        sub_message_encoder = self._sub_message_encoder(sub_message)
 
-        sub_message_id = sub_msg.message_id
-        sub_message_length = sub_msg_encoder.size(sub_msg)
+        sub_message_id = sub_message.message_id
+        sub_message_length = sub_message_encoder.size(sub_message)
 
-        sub_hdr = ExtendedMessageSubHeader(
+        sub_header = ExtendedMessageSubHeader(
             message_id=sub_message_id,
             message_length=sub_message_length,
         )
 
-        return _EXTENDED_SUB_HDR_STRUCT.pack(sub_message_id) + sub_msg_encoder.encode(
-            hdr=sub_hdr, msg=sub_msg
+        return _SUB_HEADER_STRUCT.pack(sub_message_id) + sub_message_encoder.encode(
+            header=sub_header, message=sub_message
         )
 
 
@@ -132,31 +133,31 @@ class ExtendedMessageDecoder(
         """
         self._decoder_map = decoder_map
 
-    def _sub_msg_decoder(
+    def _sub_message_decoder(
         self, sub_message_id: int
     ) -> comms.MessageDecoder[ExtendedMessageSubHeader, comms.Message]:
-        sub_msg_decoder = self._decoder_map.get(sub_message_id)
-        if not sub_msg_decoder:
+        sub_message_decoder = self._decoder_map.get(sub_message_id)
+        if not sub_message_decoder:
             return ExtendedMessageDecoder._UNSUPPORTED_DECODER
-        return sub_msg_decoder
+        return sub_message_decoder
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: At4Header
+        self, buffer: bytes | bytearray, header: At4Header
     ) -> MessageDecodeResult[ExtendedMessage[comms.Message]]:
-        (sub_message_id,) = _EXTENDED_SUB_HDR_STRUCT.unpack_from(buffer)
+        (sub_message_id,) = _SUB_HEADER_STRUCT.unpack_from(buffer)
 
-        sub_hdr = ExtendedMessageSubHeader(
+        sub_header = ExtendedMessageSubHeader(
             message_id=sub_message_id,
-            message_length=(hdr.message_length - _EXTENDED_SUB_HDR_STRUCT.size),
+            message_length=(header.message_length - _SUB_HEADER_STRUCT.size),
         )
 
-        sub_msg_decoder = self._sub_msg_decoder(sub_message_id)
-        sub_msg_result = sub_msg_decoder.decode(
-            buffer=buffer[_EXTENDED_SUB_HDR_STRUCT.size :],
-            hdr=sub_hdr,
+        sub_message_decoder = self._sub_message_decoder(sub_message_id)
+        sub_message_result = sub_message_decoder.decode(
+            buffer=buffer[_SUB_HEADER_STRUCT.size :],
+            header=sub_header,
         )
         return comms.MessageDecodeResult(
-            message=ExtendedMessage(sub_message=sub_msg_result.message),
-            remaining=sub_msg_result.remaining,
+            message=ExtendedMessage(sub_message=sub_message_result.message),
+            remaining=sub_message_result.remaining,
         )

@@ -32,8 +32,8 @@ class HeaderFactory(comms.HeaderFactory[hdr.At4Header]):
         self._next_packet_id = 0
 
     @override
-    def create_from_message(self, msg: Message, message_length: int) -> At4Header:
-        message_id = msg.message_id
+    def create_from_message(self, message: Message, message_length: int) -> At4Header:
+        message_id = message.message_id
 
         # The "To" address depends whether we are sending an extended message or not.
         to_address = hdr.ADDRESS_AIRTOUCH

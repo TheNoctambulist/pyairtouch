@@ -4,8 +4,8 @@ The message header contains the message ID and address information as required
 by the communication protocol.
 """
 
-import dataclasses
 import struct
+from dataclasses import dataclass
 
 from typing_extensions import override
 
@@ -31,7 +31,7 @@ AirTouch 5 uses CRC16 MODBUS, so two bytes are required.
 """
 
 
-@dataclasses.dataclass
+@dataclass
 class At5Header:
     """The AirTouch 5 header.
 
@@ -58,10 +58,10 @@ class At5Header:
 # reverse engineered.
 #
 # To simplify encoding and decoding the two headers are combined into a single struct.
-_HDR_STRUCT = struct.Struct("!4s2xHH4sBBBBH")
+_STRUCT = struct.Struct("!4s2xHH4sBBBBH")
 
-_OUTER_HDR_PREFIX = b"\x55\x55\x55\xab"
-_INNER_HDR_PREFIX = b"\x55\x55\x55\xaa"
+_OUTER_HEADER_PREFIX = b"\x55\x55\x55\xab"
+_INNER_HEADER_PREFIX = b"\x55\x55\x55\xaa"
 
 _INTERNAL_HEADER_LENGTH = 10
 """
@@ -70,7 +70,7 @@ Number of bytes within the header that are part of the documented internal heade
 # The checksum calculation is only calculated over the internal data and
 # excludes the header prefix.
 _CHECKSUM_DATA_START = (
-    _HDR_STRUCT.size - _INTERNAL_HEADER_LENGTH + len(_INNER_HDR_PREFIX)
+    _STRUCT.size - _INTERNAL_HEADER_LENGTH + len(_INNER_HEADER_PREFIX)
 )
 
 
@@ -78,21 +78,21 @@ class HeaderEncoder(comms.HeaderEncoder[At5Header]):
     """Encoder for the AirTouch 5 header."""
 
     @override
-    def encode(self, hdr: At5Header) -> comms.HeaderEncodeResult:
+    def encode(self, header: At5Header) -> comms.HeaderEncodeResult:
         # Data length in the outer header is calculated as follows:
         # length of the internal header + the message length + the CRC length.
-        data_length = _INTERNAL_HEADER_LENGTH + hdr.message_length + CRC_LENGTH
+        data_length = _INTERNAL_HEADER_LENGTH + header.message_length + CRC_LENGTH
 
-        header_bytes = _HDR_STRUCT.pack(
-            _OUTER_HDR_PREFIX,
+        header_bytes = _STRUCT.pack(
+            _OUTER_HEADER_PREFIX,
             data_length,
             data_length,  # Data Length is repeated
-            _INNER_HDR_PREFIX,
-            hdr.to_address,
-            hdr.from_address,
-            hdr.packet_id,
-            hdr.message_id,
-            hdr.message_length,
+            _INNER_HEADER_PREFIX,
+            header.to_address,
+            header.from_address,
+            header.packet_id,
+            header.message_id,
+            header.message_length,
         )
 
         return comms.HeaderEncodeResult(
@@ -106,7 +106,7 @@ class HeaderDecoder(comms.HeaderDecoder[At5Header]):
     @override
     @property
     def header_length(self) -> int:
-        return _HDR_STRUCT.size
+        return _STRUCT.size
 
     @override
     def decode(self, buffer: bytes | bytearray) -> comms.HeaderDecodeResult[At5Header]:
@@ -120,16 +120,16 @@ class HeaderDecoder(comms.HeaderDecoder[At5Header]):
             packet_id,
             message_id,
             message_length,
-        ) = _HDR_STRUCT.unpack_from(buffer)
+        ) = _STRUCT.unpack_from(buffer)
 
-        if outer_prefix != _OUTER_HDR_PREFIX:
+        if outer_prefix != _OUTER_HEADER_PREFIX:
             raise comms.DecodeError(f"Uknown header prefix: {outer_prefix}")
 
         if data_length_1 != data_length_2:
             raise comms.DecodeError(
                 f"data_length_1 ({data_length_1}) != data_length_2 ({data_length_2})"
             )
-        if inner_prefix != _INNER_HDR_PREFIX:
+        if inner_prefix != _INNER_HEADER_PREFIX:
             raise comms.DecodeError(f"Unknown header prefix: {inner_prefix}")
 
         calculated_data_length = _INTERNAL_HEADER_LENGTH + message_length + CRC_LENGTH
@@ -152,6 +152,6 @@ class HeaderDecoder(comms.HeaderDecoder[At5Header]):
                 message_id=message_id,
                 message_length=message_length,
             ),
-            remaining=buffer[_HDR_STRUCT.size :],
-            checksum_data=buffer[_CHECKSUM_DATA_START : _HDR_STRUCT.size],
+            remaining=buffer[_STRUCT.size :],
+            checksum_data=buffer[_CHECKSUM_DATA_START : _STRUCT.size],
         )

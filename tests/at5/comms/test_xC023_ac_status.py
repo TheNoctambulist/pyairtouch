@@ -16,15 +16,15 @@ from pyairtouch.at5.comms.xC023_ac_status import (
 
 
 def generate_header(
-    msg: AcStatusMessage | AcStatusRequest,
+    message: AcStatusMessage | AcStatusRequest,
 ) -> ControlStatusSubHeader:
     """Construct a header for the AcStatusMessage"""
     encoder = AcStatusEncoder()
     return ControlStatusSubHeader(
         sub_message_id=MESSAGE_ID,
-        non_repeat_length=encoder.non_repeat_size(msg),
-        repeat_length=encoder.repeat_size(msg),
-        repeat_count=encoder.repeat_count(msg),
+        non_repeat_length=encoder.non_repeat_size(message),
+        repeat_length=encoder.repeat_size(message),
+        repeat_count=encoder.repeat_count(message),
     )
 
 

@@ -223,21 +223,21 @@ class AirTouchSocket(Generic[comms.Hdr]):
                 _LOGGER.debug("Socket closed by other side")
                 await self._reset_connection()
 
-    async def _write(self, hdr: comms.Hdr, message: comms.Message) -> None:
+    async def _write(self, header: comms.Hdr, message: comms.Message) -> None:
         if not self._writer:
             raise NotConnectedError
 
-        encoded_header = self._registry.header_encoder.encode(hdr)
+        encoded_header = self._registry.header_encoder.encode(header)
 
         message_encoder = self._registry.get_encoder(message.message_id)
-        message_bytes = message_encoder.encode(hdr, message)
+        message_bytes = message_encoder.encode(header, message)
 
         crc_bytes = self._registry.checksum_calculator.calculate(
             encoded_header.checksum_data + message_bytes
         )
 
         if _LOGGER.isEnabledFor(logging.DEBUG):
-            _LOGGER.debug("Write Header : %s", hdr)
+            _LOGGER.debug("Write Header : %s", header)
             _LOGGER.debug("...   Message: %s", message)
             _LOGGER.debug("...   CRC    : %s", crc_bytes)
             all_bytes = encoded_header.header_bytes + message_bytes + crc_bytes

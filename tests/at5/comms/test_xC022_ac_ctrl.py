@@ -14,14 +14,14 @@ from pyairtouch.at5.comms.xC022_ac_ctrl import (
 )
 
 
-def generate_header(msg: AcControlMessage) -> ControlStatusSubHeader:
+def generate_header(message: AcControlMessage) -> ControlStatusSubHeader:
     """Construct a header for the AcControlMessage"""
     encoder = AcControlEncoder()
     return ControlStatusSubHeader(
         sub_message_id=MESSAGE_ID,
-        non_repeat_length=encoder.non_repeat_size(msg),
-        repeat_length=encoder.repeat_size(msg),
-        repeat_count=encoder.repeat_count(msg),
+        non_repeat_length=encoder.non_repeat_size(message),
+        repeat_length=encoder.repeat_size(message),
+        repeat_count=encoder.repeat_count(message),
     )
 
 

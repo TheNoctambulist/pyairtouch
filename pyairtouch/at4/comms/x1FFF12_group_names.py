@@ -75,23 +75,25 @@ class GroupNamesEncoder(
     """
 
     @override
-    def size(self, msg: GroupNamesMessage | GroupNamesRequest) -> int:
-        if isinstance(msg, GroupNamesRequest):
-            return 0 if msg.group_number == "ALL" else 1
+    def size(self, message: GroupNamesMessage | GroupNamesRequest) -> int:
+        if isinstance(message, GroupNamesRequest):
+            return 0 if message.group_number == "ALL" else 1
 
-        return _PER_GROUP_SIZE * len(msg.group_names)
+        return _PER_GROUP_SIZE * len(message.group_names)
 
     @override
     def encode(
-        self, hdr: ExtendedMessageSubHeader, msg: GroupNamesMessage | GroupNamesRequest
+        self,
+        header: ExtendedMessageSubHeader,
+        message: GroupNamesMessage | GroupNamesRequest,
     ) -> bytes:
-        if isinstance(msg, GroupNamesRequest):
-            if msg.group_number == "ALL":
+        if isinstance(message, GroupNamesRequest):
+            if message.group_number == "ALL":
                 return b""  # No content
-            return bytes((msg.group_number,))
+            return bytes((message.group_number,))
 
         buffer = bytearray()
-        for group_number, group_name in msg.group_names.items():
+        for group_number, group_name in message.group_names.items():
             buffer.append(group_number)
             buffer.extend(encoding.encode_c_string(group_name, _GROUP_NAME_LENGTH))
         return buffer
@@ -109,31 +111,31 @@ class GroupNamesDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: ExtendedMessageSubHeader
+        self, buffer: bytes | bytearray, header: ExtendedMessageSubHeader
     ) -> MessageDecodeResult[GroupNamesMessage | GroupNamesRequest]:
         # If there is no data, this is a request for all groups
-        if hdr.message_length == 0:
+        if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=GroupNamesRequest(group_number="ALL"),
                 remaining=buffer,
             )
 
         # If there is only one byte, then this is a request for a single group
-        if hdr.message_length == 1:
+        if header.message_length == 1:
             return comms.MessageDecodeResult(
                 message=GroupNamesRequest(group_number=buffer[0]),
                 remaining=buffer[1:],
             )
 
         # Otherwise, decode group names for one or more groups:
-        if (hdr.message_length % (1 + _GROUP_NAME_LENGTH)) != 0:
+        if (header.message_length % (1 + _GROUP_NAME_LENGTH)) != 0:
             raise comms.DecodeError(
-                f"Message length ({hdr.message_length}) is not "
+                f"Message length ({header.message_length}) is not "
                 f"a multiple of the group data size ({_PER_GROUP_SIZE})."
             )
 
         group_names: dict[int, str] = {}
-        for _ in range(hdr.message_length // _PER_GROUP_SIZE):
+        for _ in range(header.message_length // _PER_GROUP_SIZE):
             group_number = buffer[0]
             group_name = encoding.decode_c_string(buffer[1:_PER_GROUP_SIZE])
 

@@ -106,7 +106,7 @@ class AcStatusRequest(comms.Message):
         return MESSAGE_ID
 
 
-_AC_STATUS_STRUCT = struct.Struct("!BBBxHH")
+_STRUCT = struct.Struct("!BBBxHH")
 
 
 class AcStatusEncoder(
@@ -119,19 +119,21 @@ class AcStatusEncoder(
     """
 
     @override
-    def size(self, msg: AcStatusMessage | AcStatusRequest) -> int:
-        if isinstance(msg, AcStatusRequest):
+    def size(self, message: AcStatusMessage | AcStatusRequest) -> int:
+        if isinstance(message, AcStatusRequest):
             return 0  # AC Status Request is empty
 
-        return _AC_STATUS_STRUCT.size * len(msg.ac_status)
+        return _STRUCT.size * len(message.ac_status)
 
     @override
-    def encode(self, hdr: At4Header, msg: AcStatusMessage | AcStatusRequest) -> bytes:
-        if isinstance(msg, AcStatusRequest):
+    def encode(
+        self, header: At4Header, message: AcStatusMessage | AcStatusRequest
+    ) -> bytes:
+        if isinstance(message, AcStatusRequest):
             return b""
 
         buffer = bytearray()
-        for ac_status in msg.ac_status:
+        for ac_status in message.ac_status:
             encoded_ac_number = self._encode_ac_number(ac_status.ac_number)
             encoded_power_state = self._encode_power_state(ac_status.power_state)
             encoded_mode = self._encode_mode(ac_status.mode)
@@ -146,9 +148,7 @@ class AcStatusEncoder(
             b3 = encoded_spill_active + encoded_timer_set + encoded_set_point
 
             buffer.extend(
-                _AC_STATUS_STRUCT.pack(
-                    b1, b2, b3, encoded_temperature, ac_status.error_code
-                )
+                _STRUCT.pack(b1, b2, b3, encoded_temperature, ac_status.error_code)
             )
 
         return buffer
@@ -186,31 +186,31 @@ class AcStatusDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: At4Header
+        self, buffer: bytes | bytearray, header: At4Header
     ) -> MessageDecodeResult[AcStatusMessage | AcStatusRequest]:
         # If there is no data in the message this is a request for AC status.
-        if hdr.message_length == 0:
+        if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=AcStatusRequest(),
                 remaining=buffer,
             )
 
         # Otherwise decode status information for each AC:
-        if (hdr.message_length % _AC_STATUS_STRUCT.size) != 0:
+        if (header.message_length % _STRUCT.size) != 0:
             raise comms.DecodeError(
-                f"Message length ({hdr.message_length}) is not "
-                f"a multiple of AC Status size ({_AC_STATUS_STRUCT.size})."
+                f"Message length ({header.message_length}) is not "
+                f"a multiple of AC Status size ({_STRUCT.size})."
             )
 
         ac_status: list[AcStatusData] = []
-        for _ in range(hdr.message_length // _AC_STATUS_STRUCT.size):
+        for _ in range(header.message_length // _STRUCT.size):
             (
                 b1,
                 b2,
                 b3,
                 encoded_temperature,
                 error_code,
-            ) = _AC_STATUS_STRUCT.unpack_from(buffer)
+            ) = _STRUCT.unpack_from(buffer)
 
             ac_status.append(
                 AcStatusData(
@@ -226,7 +226,7 @@ class AcStatusDecoder(
                 )
             )
 
-            buffer = buffer[_AC_STATUS_STRUCT.size :]
+            buffer = buffer[_STRUCT.size :]
 
         return comms.MessageDecodeResult(
             message=AcStatusMessage(ac_status),

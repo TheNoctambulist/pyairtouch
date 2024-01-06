@@ -43,7 +43,7 @@ class GroupIncreaseDecrease(enum.Enum):
     """Increase or decrease the current group setting by one unit.
 
     If the group is currently in temperature control, the set-point will be
-    increased/decreased by one degree celsius.
+    increased/decreased by one degree Celsius.
 
     If the group is currently in damper control, the current open percentage
     will by increased/decreased by 5%.
@@ -85,13 +85,13 @@ class GroupControlMessage(comms.Message):
         return MESSAGE_ID
 
 
-_GROUP_CONTROL_STRUCT = struct.Struct("!BBBx")
+_STRUCT = struct.Struct("!BBBx")
 
 # Magic numbers from the interface specification
-_GROUP_CONTROL_KEEP_SETTING = 0x00
-_GROUP_CONTROL_SET_PERCENTAGE = 0x04
-_GROUP_CONTROL_SET_SETPOINT = 0x05
-_GROUP_CONTROL_VALUE_INVALID = 0x00
+_KEEP_SETTING = 0x00
+_SET_PERCENTAGE = 0x04
+_SET_SETPOINT = 0x05
+_VALUE_INVALID = 0x00
 
 
 class GroupControlEncoder(comms.MessageEncoder[At4Header, GroupControlMessage]):
@@ -99,31 +99,31 @@ class GroupControlEncoder(comms.MessageEncoder[At4Header, GroupControlMessage]):
 
     @override
     def size(self, _: GroupControlMessage) -> int:
-        return _GROUP_CONTROL_STRUCT.size
+        return _STRUCT.size
 
     @override
-    def encode(self, _: At4Header, msg: GroupControlMessage) -> bytes:
-        encoded_method = self._encode_control_method(msg.control_method)
-        encoded_setting, encoded_setting_value = self._encode_setting(msg.setting)
-        encoded_power = self._encode_power(msg.power)
+    def encode(self, _: At4Header, message: GroupControlMessage) -> bytes:
+        encoded_method = self._encode_control_method(message.control_method)
+        encoded_setting, encoded_setting_value = self._encode_setting(message.setting)
+        encoded_power = self._encode_power(message.power)
         b2 = encoded_setting + encoded_method + encoded_power
-        return _GROUP_CONTROL_STRUCT.pack(msg.group_number, b2, encoded_setting_value)
+        return _STRUCT.pack(message.group_number, b2, encoded_setting_value)
 
     def _encode_control_method(self, control_method: GroupControlMethod) -> int:
         return (control_method.value << 3) & 0x18
 
     def _encode_setting(self, setting: GroupSetting) -> tuple[int, int]:
-        encoded_setting = _GROUP_CONTROL_KEEP_SETTING
-        setting_value = _GROUP_CONTROL_VALUE_INVALID
+        encoded_setting = _KEEP_SETTING
+        setting_value = _VALUE_INVALID
 
         match setting:
             case GroupIncreaseDecrease():
                 encoded_setting = setting.value
             case GroupDamperControl(open_percentage=open_percentage):
-                encoded_setting = _GROUP_CONTROL_SET_PERCENTAGE
+                encoded_setting = _SET_PERCENTAGE
                 setting_value = open_percentage
             case GroupSetPointControl(set_point=set_point):
-                encoded_setting = _GROUP_CONTROL_SET_SETPOINT
+                encoded_setting = _SET_SETPOINT
                 setting_value = set_point
         return (encoded_setting << 5, setting_value)
 
@@ -136,9 +136,9 @@ class GroupControlDecoder(comms.MessageDecoder[At4Header, GroupControlMessage]):
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: At4Header
+        self, buffer: bytes | bytearray, header: At4Header
     ) -> MessageDecodeResult[GroupControlMessage]:
-        (group_number, b2, setting_value) = _GROUP_CONTROL_STRUCT.unpack_from(buffer)
+        (group_number, b2, setting_value) = _STRUCT.unpack_from(buffer)
 
         return comms.MessageDecodeResult(
             message=GroupControlMessage(
@@ -147,7 +147,7 @@ class GroupControlDecoder(comms.MessageDecoder[At4Header, GroupControlMessage]):
                 control_method=self._decode_control_method(b2),
                 setting=self._decode_setting(b2, setting_value),
             ),
-            remaining=buffer[_GROUP_CONTROL_STRUCT.size :],
+            remaining=buffer[_STRUCT.size :],
         )
 
     def _decode_power(self, byte2: int) -> GroupPowerControl:
@@ -165,10 +165,10 @@ class GroupControlDecoder(comms.MessageDecoder[At4Header, GroupControlMessage]):
             # This was not an Increase/Decrease control request
             pass
 
-        if setting_type == _GROUP_CONTROL_SET_SETPOINT:
+        if setting_type == _SET_SETPOINT:
             return GroupSetPointControl(set_point=setting_value)
 
-        if setting_type == _GROUP_CONTROL_SET_PERCENTAGE:
+        if setting_type == _SET_PERCENTAGE:
             return GroupDamperControl(open_percentage=setting_value)
 
         # Keep the setting value unchanged.

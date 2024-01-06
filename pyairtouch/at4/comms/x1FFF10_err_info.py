@@ -63,27 +63,31 @@ class AcErrorInformationEncoder(
     """
 
     @override
-    def size(self, msg: AcErrorInformationMessage | AcErrorInformationRequest) -> int:
-        if isinstance(msg, AcErrorInformationRequest):
+    def size(
+        self, message: AcErrorInformationMessage | AcErrorInformationRequest
+    ) -> int:
+        if isinstance(message, AcErrorInformationRequest):
             return 1  # AC number only
         # Will result in the string being encoded twice, but we don't expect to
         # encode this message very often, so there's no need to optimise this.
-        if msg.error_info:
-            return 2 + len(msg.error_info.encode(encoding=encoding.STRING_ENCODING))
+        if message.error_info:
+            return 2 + len(message.error_info.encode(encoding=encoding.STRING_ENCODING))
         return 2
 
     @override
     def encode(
         self,
         _: ExtendedMessageSubHeader,
-        msg: AcErrorInformationMessage | AcErrorInformationRequest,
+        message: AcErrorInformationMessage | AcErrorInformationRequest,
     ) -> bytes:
         buffer = bytearray()
-        buffer.append(msg.ac_number & 0xFF)
+        buffer.append(message.ac_number & 0xFF)
 
-        if isinstance(msg, AcErrorInformationMessage):
-            if msg.error_info:
-                error_string = msg.error_info.encode(encoding=encoding.STRING_ENCODING)
+        if isinstance(message, AcErrorInformationMessage):
+            if message.error_info:
+                error_string = message.error_info.encode(
+                    encoding=encoding.STRING_ENCODING
+                )
                 buffer.append(len(error_string))
                 buffer.extend(error_string)
             else:
@@ -105,11 +109,11 @@ class AcErrorInformationDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: ExtendedMessageSubHeader
+        self, buffer: bytes | bytearray, header: ExtendedMessageSubHeader
     ) -> MessageDecodeResult[AcErrorInformationMessage | AcErrorInformationRequest]:
         ac_number = buffer[0]
         # If the data only contains the AC number then this is a request
-        if hdr.message_length == 1:
+        if header.message_length == 1:
             return comms.MessageDecodeResult(
                 message=AcErrorInformationRequest(ac_number), remaining=buffer[1:]
             )

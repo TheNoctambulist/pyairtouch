@@ -8,9 +8,9 @@ message objects, the ID of sub-messages is prefixed with 0xC0 (the ID of this
 message).
 """  # noqa: N999
 
-import dataclasses
 import struct
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any, Generic, Protocol
 
 from typing_extensions import override
@@ -21,7 +21,7 @@ from pyairtouch.at5.comms.hdr import At5Header
 MESSAGE_ID = 0xC0
 
 
-@dataclasses.dataclass
+@dataclass
 class ControlStatusMessage(comms.Message, Generic[comms.Msg]):
     """A Control/Status Message.
 
@@ -36,7 +36,7 @@ class ControlStatusMessage(comms.Message, Generic[comms.Msg]):
         return MESSAGE_ID
 
 
-@dataclasses.dataclass
+@dataclass
 class ControlStatusSubHeader(comms.Header):
     """The header for Control/Status sub-messages."""
 
@@ -67,16 +67,18 @@ class ControlStatusSubHeader(comms.Header):
 class ControlStatusSubEncoder(Protocol[comms.Msg_contra]):
     """Interface for a control/status sub-message encoder."""
 
-    def non_repeat_size(self, msg: comms.Msg_contra) -> int:
+    def non_repeat_size(self, message: comms.Msg_contra) -> int:
         """Size of the non-repeating part of the specified message in bytes."""
 
-    def repeat_count(self, msg: comms.Msg_contra) -> int:
+    def repeat_count(self, message: comms.Msg_contra) -> int:
         """Number of repeat sections included in the specified message."""
 
-    def repeat_size(self, msg: comms.Msg_contra) -> int:
+    def repeat_size(self, message: comms.Msg_contra) -> int:
         """Size of each repeat section in the specified message in bytes."""
 
-    def encode(self, hdr: ControlStatusSubHeader, msg: comms.Msg_contra) -> bytes:
+    def encode(
+        self, header: ControlStatusSubHeader, message: comms.Msg_contra
+    ) -> bytes:
         """Encodes the specified messages into a bytes array."""
 
 
@@ -87,18 +89,20 @@ class UnsupportedControlStatusDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: ControlStatusSubHeader
+        self, buffer: bytes | bytearray, header: ControlStatusSubHeader
     ) -> comms.MessageDecodeResult[comms.UnsupportedMessage]:
-        data_length = hdr.non_repeat_length + hdr.repeat_count * hdr.repeat_length
+        data_length = (
+            header.non_repeat_length + header.repeat_count * header.repeat_length
+        )
         return comms.MessageDecodeResult(
             message=comms.UnsupportedMessage(
-                unsupported_id=hdr.sub_message_id, raw_data=buffer[:data_length]
+                unsupported_id=header.sub_message_id, raw_data=buffer[:data_length]
             ),
             remaining=buffer[data_length:],
         )
 
 
-_CONTROL_STATUS_SUB_HDR_STRUCT = struct.Struct("!BxHHH")
+_SUB_HEADER_STRUCT = struct.Struct("!BxHHH")
 
 
 class ControlStatusEncoder(comms.MessageEncoder[At5Header, ControlStatusMessage[Any]]):
@@ -112,43 +116,45 @@ class ControlStatusEncoder(comms.MessageEncoder[At5Header, ControlStatusMessage[
         """
         self._encoder_map = encoder_map
 
-    def _sub_msg_encoder(
-        self, sub_msg: comms.Msg
+    def _sub_message_encoder(
+        self, sub_message: comms.Msg
     ) -> ControlStatusSubEncoder[comms.Msg]:
-        sub_msg_encoder = self._encoder_map.get(sub_msg.message_id)
-        if not sub_msg_encoder:
+        sub_message_encoder = self._encoder_map.get(sub_message.message_id)
+        if not sub_message_encoder:
             raise NotImplementedError(
-                f"Encoding of sub-message 0x{sub_msg.message_id:02x} not implemented."
+                f"Sub-message 0x{sub_message.message_id:02x} not implemented."
             )
-        return sub_msg_encoder
+        return sub_message_encoder
 
     @override
-    def size(self, msg: ControlStatusMessage[Any]) -> int:
-        sub_msg_encoder = self._sub_msg_encoder(msg.sub_message)
-        non_repeat_size = sub_msg_encoder.non_repeat_size(msg.sub_message)
-        repeat_count = sub_msg_encoder.repeat_count(msg.sub_message)
-        total_repeat_size = repeat_count * sub_msg_encoder.repeat_size(msg.sub_message)
-        return _CONTROL_STATUS_SUB_HDR_STRUCT.size + non_repeat_size + total_repeat_size
+    def size(self, message: ControlStatusMessage[Any]) -> int:
+        sub_message_encoder = self._sub_message_encoder(message.sub_message)
+        non_repeat_size = sub_message_encoder.non_repeat_size(message.sub_message)
+        repeat_count = sub_message_encoder.repeat_count(message.sub_message)
+        total_repeat_size = repeat_count * sub_message_encoder.repeat_size(
+            message.sub_message
+        )
+        return _SUB_HEADER_STRUCT.size + non_repeat_size + total_repeat_size
 
     @override
-    def encode(self, _: At5Header, msg: ControlStatusMessage[Any]) -> bytes:
-        sub_msg_encoder = self._sub_msg_encoder(msg.sub_message)
+    def encode(self, _: At5Header, message: ControlStatusMessage[Any]) -> bytes:
+        sub_message_encoder = self._sub_message_encoder(message.sub_message)
 
-        sub_message_id = msg.sub_message.message_id
-        non_repeat_length = sub_msg_encoder.non_repeat_size(msg.sub_message)
-        repeat_count = sub_msg_encoder.repeat_count(msg.sub_message)
-        repeat_length = sub_msg_encoder.repeat_size(msg.sub_message)
+        sub_message_id = message.sub_message.message_id
+        non_repeat_length = sub_message_encoder.non_repeat_size(message.sub_message)
+        repeat_count = sub_message_encoder.repeat_count(message.sub_message)
+        repeat_length = sub_message_encoder.repeat_size(message.sub_message)
 
-        sub_hdr = ControlStatusSubHeader(
+        sub_header = ControlStatusSubHeader(
             sub_message_id=sub_message_id,
             non_repeat_length=non_repeat_length,
             repeat_count=repeat_count,
             repeat_length=repeat_length,
         )
 
-        return _CONTROL_STATUS_SUB_HDR_STRUCT.pack(
+        return _SUB_HEADER_STRUCT.pack(
             sub_message_id, non_repeat_length, repeat_length, repeat_count
-        ) + sub_msg_encoder.encode(sub_hdr, msg.sub_message)
+        ) + sub_message_encoder.encode(sub_header, message.sub_message)
 
 
 class ControlStatusDecoder(
@@ -172,13 +178,13 @@ class ControlStatusDecoder(
         """
         self._decoder_map = decoder_map
 
-    def _sub_msg_decoder(
+    def _sub_message_decoder(
         self, sub_message_id: int
     ) -> comms.MessageDecoder[ControlStatusSubHeader, comms.Message]:
-        sub_msg_decoder = self._decoder_map.get(sub_message_id)
-        if not sub_msg_decoder:
+        sub_message_decoder = self._decoder_map.get(sub_message_id)
+        if not sub_message_decoder:
             return ControlStatusDecoder._UNSUPPORTED_DECODER
-        return sub_msg_decoder
+        return sub_message_decoder
 
     @override
     def decode(
@@ -194,18 +200,18 @@ class ControlStatusDecoder(
             non_repeat_length,
             repeat_length,
             repeat_count,
-        ) = _CONTROL_STATUS_SUB_HDR_STRUCT.unpack_from(buffer)
+        ) = _SUB_HEADER_STRUCT.unpack_from(buffer)
 
-        sub_hdr = ControlStatusSubHeader(
+        sub_header = ControlStatusSubHeader(
             sub_message_id, non_repeat_length, repeat_length, repeat_count
         )
 
-        sub_msg_decoder = self._sub_msg_decoder(sub_message_id)
+        sub_message_decoder = self._sub_message_decoder(sub_message_id)
 
-        sub_msg_result = sub_msg_decoder.decode(
-            buffer[_CONTROL_STATUS_SUB_HDR_STRUCT.size :], sub_hdr
+        sub_message_result = sub_message_decoder.decode(
+            buffer[_SUB_HEADER_STRUCT.size :], sub_header
         )
         return comms.MessageDecodeResult(
-            message=ControlStatusMessage(sub_message=sub_msg_result.message),
-            remaining=sub_msg_result.remaining,
+            message=ControlStatusMessage(sub_message=sub_message_result.message),
+            remaining=sub_message_result.remaining,
         )

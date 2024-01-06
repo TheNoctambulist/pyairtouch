@@ -40,13 +40,13 @@ async def main() -> None:
         aircon = airtouch.air_conditioners[ac_id]
         print(
             f"AC Status  : {aircon.power_state.name} {aircon.mode.name}  "
-            f"temp={aircon.current_temp:.1f} set_point={aircon.set_point:.1f}"
+            f"temp={aircon.current_temperature:.1f} set_point={aircon.target_temperature:.1f}"
         )
 
         for zone in aircon.zones:
             print(
                 f"Zone Status: {zone.name:10} {zone.power_state.name:3}  "
-                f"temp={zone.current_temp:.1f} set_point={zone.set_point:.1f} "
+                f"temp={zone.current_temperature:.1f} set_point={zone.target_temperature:.1f} "
                 f"damper={zone.current_damper_percentage}"
             )
 

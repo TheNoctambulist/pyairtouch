@@ -104,12 +104,12 @@ class ZonePowerState(Enum):
 class ZoneControlMethod(Enum):
     """Control methods for an AirTouch Zone.
 
-    Identifies whether the AirTouch zone is controlled by a temperature
+    Identifies whether the AirTouch zone is controlled by a target temperature
     set-point or set to a fixed damper opening.
     """
 
     DAMPER = auto()
-    TEMP = auto()
+    TEMPERATURE = auto()
 
 
 class SensorBatteryStatus(Enum):
@@ -164,7 +164,7 @@ class Zone(Protocol):
         """
 
     @property
-    def current_temp(self) -> Optional[float]:
+    def current_temperature(self) -> Optional[float]:
         """The current measured temperature of the zone.
 
         Returns:
@@ -173,21 +173,22 @@ class Zone(Protocol):
         """
 
     @property
-    def set_point(self) -> Optional[float]:
-        """The current set-point temperature of the zone.
+    def target_temperature(self) -> Optional[float]:
+        """The current target temperature set-point of the zone.
 
         Returns:
-            The current set-point temperature of the zone or None if the zone
-            doesn't have a sensor and no set-point is defined.
+            The current target temperature of the zone in degrees Celsius or
+            None if the zone doesn't have a sensor and no target temperature is
+            defined.
         """
 
     @property
-    def set_point_resolution(self) -> float:
-        """The resolution of the set-point for the zone.
+    def target_temperature_resolution(self) -> float:
+        """The resolution of the target temperature for the zone.
 
-        Values returned from the set_point property will have this resolution.
-        When setting a new set-point, the requested value will be rounded to
-        this resolution.
+        Values returned from the `target_temperature` property will have this
+        resolution. When setting a new target temperature, the requested value
+        will be rounded to this resolution.
         """
 
     @property
@@ -209,12 +210,12 @@ class Zone(Protocol):
             ValueError: If the zone does not support the requested power state.
         """
 
-    async def set_set_point(self, set_point: float) -> None:
-        """Set a new temperature set-point for the zone.
+    async def set_target_temperature(self, temperature: float) -> None:
+        """Set a new target temperature for the zone.
 
         Args:
-            set_point: The new set-point. The provided value will be rounded
-                according to set_point_resolution.
+            temperature: The new target temperature. The provided value will be
+                rounded according to `target_temperature_resolution`.
 
         Raises:
             ValueError: If the zone does not have a temperature sensor.
@@ -280,48 +281,54 @@ class AirConditioner(Protocol):
         """Current fan speed of the air-conditioner."""
 
     @property
-    def current_temp(self) -> float:
+    def current_temperature(self) -> float:
         """Current temperature as measured by the air-conditioner's sensor.
 
         Returns:
-            The current temperature in degrees celsius.
+            The current temperature in degrees Celsius.
         """
 
     @property
-    def set_point(self) -> float:
-        """Current temperature set-point of the air-conditioner.
+    def target_temperature(self) -> float:
+        """Current target temperature set-point of the air-conditioner.
 
         Returns:
-            The current set-point temperature in degrees celsius.
+            The current target temperature in degrees Celsius.
         """
 
     @property
-    def set_point_resolution(self) -> float:
-        """The resolution of the set-point for the air-conditioner.
+    def target_temperature_resolution(self) -> float:
+        """The resolution of the target temperature for the air-conditioner.
 
-        Values returned from the set_point property will have this resolution.
-        When setting a new set-point, the requested value will be rounded to
-        this resolution.
+        Values returned from the `target_temperature` property will have this
+        resolution. When setting a new target temperature, the requested value
+        will be rounded to this resolution.
         """
 
     @property
-    def min_set_point(self) -> float:
-        """Minimum permitted value for the set-point of the air-conditioner.
+    def min_target_temperature(self) -> float:
+        """Minimum permitted value for the target temperature of the air-conditioner.
 
-        The minimum set-point may change depending on the mode of the air-conditioner.
+        The minimum temperature may change depending on the mode of the air-conditioner.
+
+        This minimum also applies to the target temperature of any zones
+        associated with the air-conditioner.
 
         Returns:
-            The minimum set-point temperature in degrees celsius.
+            The minimum target temperature in degrees Celsius.
         """
 
     @property
-    def max_set_point(self) -> float:
-        """Maximum permitted value for the set-point of the air-conditioner.
+    def max_target_temperature(self) -> float:
+        """Maximum permitted value for the target temperature of the air-conditioner.
 
-        The maximum set-point may change depending on the mode of the air-conditioner.
+        The maximum temperature may change depending on the mode of the air-conditioner.
+
+        This maximum also applies to the target temperature of any zones
+        associated with the air-conditioner.
 
         Returns:
-            The maximum set-point temperature in degrees celsius.
+            The maximum target temperature in degrees Celsius.
         """
 
     @property
@@ -364,18 +371,19 @@ class AirConditioner(Protocol):
             ValueError: The requested fan speed is not supported.
         """
 
-    async def set_set_point(self, set_point: float) -> None:
-        """Set a new temperature set-point for the air-conditioner.
+    async def set_target_temperature(self, temperature: float) -> None:
+        """Set a new target temperature for the air-conditioner.
 
-        Changing the set-point will have no effect when zones are using
+        Changing the target temperature will have no effect when zones are using
         temperature sensors.
         TODO: Derive the specific conditions for when this is valid and
         provide a query to check for that state.
 
         Args:
-            set_point: The new set-point value. The requested set-point will be
-                rounded to the `set_point_resolution` and bounded by `min_set_point`
-                and `max_set_point`.
+            temperature: The new target temperature value in degrees Celsius.
+                The requested temperature will be rounded to the
+                `target_temperature_resolution` and bounded by
+                `min_target_temperature` and `max_target_temperature`.
         """
 
     def subscribe(self, subscriber: UpdateSubscriber) -> None:

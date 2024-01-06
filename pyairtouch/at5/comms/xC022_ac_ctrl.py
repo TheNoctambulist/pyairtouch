@@ -7,10 +7,10 @@ AirTouch system).
 This message is a sub-message of the Control Command and Status Message.
 """  # noqa: N999
 
-import dataclasses
 import enum
 import struct
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from typing_extensions import override
@@ -72,7 +72,7 @@ class AcFanSpeedControl(enum.Enum):
         return AcFanSpeedControl.UNCHANGED
 
 
-@dataclasses.dataclass
+@dataclass
 class AcControlData:
     """Control data for a single air-conditioner."""
 
@@ -83,7 +83,7 @@ class AcControlData:
     set_point: Optional[float]
 
 
-@dataclasses.dataclass
+@dataclass
 class AcControlMessage(comms.Message):
     """The AC Control Message."""
 
@@ -95,35 +95,35 @@ class AcControlMessage(comms.Message):
         return MESSAGE_ID
 
 
-_AC_CONTROL_STRUCT = struct.Struct("!BBBB")
+_STRUCT = struct.Struct("!BBBB")
 
 # Magic numbers from the interface specification
-_AC_CONTROL_SET_POINT_UNCHANGED = 0x00
-_AC_CONTROL_SET_POINT_CHANGE = 0x40
+_SET_POINT_UNCHANGED = 0x00
+_SET_POINT_CHANGE = 0x40
 
 
 class AcControlEncoder(xC0_ctrl_status.ControlStatusSubEncoder[AcControlMessage]):
     """Encoder for the AC Control Message."""
 
     @override
-    def non_repeat_size(self, msg: AcControlMessage) -> int:
+    def non_repeat_size(self, message: AcControlMessage) -> int:
         # No non-repeating data
         return 0
 
     @override
-    def repeat_count(self, msg: AcControlMessage) -> int:
-        return len(msg.ac_control)
+    def repeat_count(self, message: AcControlMessage) -> int:
+        return len(message.ac_control)
 
     @override
-    def repeat_size(self, msg: AcControlMessage) -> int:
-        return _AC_CONTROL_STRUCT.size
+    def repeat_size(self, message: AcControlMessage) -> int:
+        return _STRUCT.size
 
     @override
     def encode(
-        self, _: xC0_ctrl_status.ControlStatusSubHeader, msg: AcControlMessage
+        self, _: xC0_ctrl_status.ControlStatusSubHeader, message: AcControlMessage
     ) -> bytes:
         buffer = bytearray()
-        for control in msg.ac_control:
+        for control in message.ac_control:
             encoded_ac_number = self._encode_ac_number(control.ac_number)
             encoded_power = self._encode_power(control.power)
             encoded_mode = self._encode_mode(control.mode)
@@ -136,9 +136,7 @@ class AcControlEncoder(xC0_ctrl_status.ControlStatusSubEncoder[AcControlMessage]
             b2 = encoded_mode + encoded_fan_speed
 
             buffer.extend(
-                _AC_CONTROL_STRUCT.pack(
-                    b1, b2, encoded_set_point_control, encoded_set_point
-                )
+                _STRUCT.pack(b1, b2, encoded_set_point_control, encoded_set_point)
             )
         return buffer
 
@@ -156,10 +154,10 @@ class AcControlEncoder(xC0_ctrl_status.ControlStatusSubEncoder[AcControlMessage]
 
     def _encode_set_point(self, set_point: Optional[float]) -> tuple[int, int]:
         if set_point:
-            return _AC_CONTROL_SET_POINT_CHANGE, utils.encode_set_point(set_point)
+            return _SET_POINT_CHANGE, utils.encode_set_point(set_point)
         # Uses 0xFF as the unchanged value based on the examples in the protocol
         # specficiation.
-        return _AC_CONTROL_SET_POINT_UNCHANGED, 0xFF
+        return _SET_POINT_UNCHANGED, 0xFF
 
 
 class AcControlDecoder(
@@ -169,13 +167,11 @@ class AcControlDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: xC0_ctrl_status.ControlStatusSubHeader
+        self, buffer: bytes | bytearray, header: xC0_ctrl_status.ControlStatusSubHeader
     ) -> comms.MessageDecodeResult[AcControlMessage]:
         ac_control: list[AcControlData] = []
-        for _ in range(hdr.repeat_count):
-            (b1, b2, set_point_control, set_point_raw) = _AC_CONTROL_STRUCT.unpack_from(
-                buffer
-            )
+        for _ in range(header.repeat_count):
+            (b1, b2, set_point_control, set_point_raw) = _STRUCT.unpack_from(buffer)
             ac_control.append(
                 AcControlData(
                     ac_number=self._decode_ac_number(b1),
@@ -185,7 +181,7 @@ class AcControlDecoder(
                     set_point=self._decode_set_point(set_point_control, set_point_raw),
                 )
             )
-            buffer = buffer[_AC_CONTROL_STRUCT.size :]
+            buffer = buffer[_STRUCT.size :]
 
         return comms.MessageDecodeResult(
             message=AcControlMessage(ac_control=ac_control),
@@ -210,9 +206,9 @@ class AcControlDecoder(
     def _decode_set_point(
         self, set_point_control: int, set_point_raw: int
     ) -> Optional[float]:
-        if set_point_control == _AC_CONTROL_SET_POINT_UNCHANGED:
+        if set_point_control == _SET_POINT_UNCHANGED:
             return None
-        if set_point_control == _AC_CONTROL_SET_POINT_CHANGE:
+        if set_point_control == _SET_POINT_CHANGE:
             return utils.decode_set_point(set_point_raw)
 
         raise comms.DecodeError(f"Invalid set_point_control value: {set_point_control}")

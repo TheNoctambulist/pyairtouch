@@ -16,15 +16,15 @@ from pyairtouch.at5.comms.xC021_zone_status import (
 
 
 def generate_header(
-    msg: ZoneStatusMessage | ZoneStatusRequest,
+    message: ZoneStatusMessage | ZoneStatusRequest,
 ) -> ControlStatusSubHeader:
     """Construct a header for the ZoneStatusMessage"""
     encoder = ZoneStatusEncoder()
     return ControlStatusSubHeader(
         sub_message_id=MESSAGE_ID,
-        non_repeat_length=encoder.non_repeat_size(msg),
-        repeat_length=encoder.repeat_size(msg),
-        repeat_count=encoder.repeat_count(msg),
+        non_repeat_length=encoder.non_repeat_size(message),
+        repeat_length=encoder.repeat_size(message),
+        repeat_count=encoder.repeat_count(message),
     )
 
 
@@ -42,7 +42,7 @@ def generate_header(
                         zone_number=0,
                         power_state=ZonePowerState.ON,
                         spill_active=False,
-                        control_method=ZoneControlMethod.TEMP,
+                        control_method=ZoneControlMethod.TEMPERATURE,
                         has_sensor=True,
                         battery_status=SensorBatteryStatus.NORMAL,
                         temperature=24.3,

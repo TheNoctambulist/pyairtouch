@@ -14,10 +14,10 @@ shared Encoder and Decoder are used.
 This message is a sub-message of the Control Command and Status Message.
 """  # noqa: N999
 
-import dataclasses
 import enum
 import struct
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Optional
 
 from typing_extensions import override
@@ -41,7 +41,7 @@ class ZoneControlMethod(enum.Enum):
     """The current zone control method."""
 
     DAMPER = 0
-    TEMP = 1
+    TEMPERATURE = 1
 
 
 class SensorBatteryStatus(enum.Enum):
@@ -51,7 +51,7 @@ class SensorBatteryStatus(enum.Enum):
     LOW = 1
 
 
-@dataclasses.dataclass
+@dataclass
 class ZoneStatusData:
     """Status data for a zone in the AirTouch system."""
 
@@ -79,7 +79,7 @@ class ZoneStatusData:
     """
 
 
-@dataclasses.dataclass
+@dataclass
 class ZoneStatusMessage(comms.Message):
     """The Zone Status Message."""
 
@@ -91,7 +91,7 @@ class ZoneStatusMessage(comms.Message):
         return MESSAGE_ID
 
 
-@dataclasses.dataclass
+@dataclass
 class ZoneStatusRequest(comms.Message):
     """Request for Zone Status Data."""
 
@@ -101,11 +101,11 @@ class ZoneStatusRequest(comms.Message):
         return MESSAGE_ID
 
 
-_ZONE_STATUS_STRUCT = struct.Struct("!BBBBHBx")
+_STRUCT = struct.Struct("!BBBBHBx")
 
-_ZONE_STATUS_INVALID_SET_POINT = 0xFF
-_ZONE_STATUS_INVALID_TEMPERATURE = 0x07FF  # Based on the examples.
-_ZONE_STATUS_MAXIMUM_TEMPERATURE = 150.0  # From the communication protocol.
+_INVALID_SET_POINT = 0xFF
+_INVALID_TEMPERATURE = 0x07FF  # Based on the examples.
+_MAXIMUM_TEMPERATURE = 150.0  # From the communication protocol.
 
 
 class ZoneStatusEncoder(
@@ -122,29 +122,29 @@ class ZoneStatusEncoder(
         return 0
 
     @override
-    def repeat_count(self, msg: ZoneStatusMessage | ZoneStatusRequest) -> int:
-        if isinstance(msg, ZoneStatusRequest):
+    def repeat_count(self, message: ZoneStatusMessage | ZoneStatusRequest) -> int:
+        if isinstance(message, ZoneStatusRequest):
             return 0
-        return len(msg.zones)
+        return len(message.zones)
 
     @override
-    def repeat_size(self, msg: ZoneStatusMessage | ZoneStatusRequest) -> int:
-        if isinstance(msg, ZoneStatusRequest):
+    def repeat_size(self, message: ZoneStatusMessage | ZoneStatusRequest) -> int:
+        if isinstance(message, ZoneStatusRequest):
             return 0
-        return _ZONE_STATUS_STRUCT.size
+        return _STRUCT.size
 
     @override
     def encode(
         self,
         _: xC0_ctrl_status.ControlStatusSubHeader,
-        msg: ZoneStatusMessage | ZoneStatusRequest,
+        message: ZoneStatusMessage | ZoneStatusRequest,
     ) -> bytes:
-        if isinstance(msg, ZoneStatusRequest):
+        if isinstance(message, ZoneStatusRequest):
             # ZoneStatusRequest has no content
             return b""
 
         buffer = bytearray()
-        for zone in msg.zones:
+        for zone in message.zones:
             encoded_zone_number = self._encode_zone_number(zone.zone_number)
             encoded_power_state = self._encode_power_state(zone.power_state)
             encoded_control_method = self._encode_control_method(zone.control_method)
@@ -161,7 +161,7 @@ class ZoneStatusEncoder(
             b2 = encoded_control_method + encoded_open_percentage
             b7 = encoded_spill_active + encoded_low_battery
             buffer.extend(
-                _ZONE_STATUS_STRUCT.pack(
+                _STRUCT.pack(
                     b1,
                     b2,
                     encoded_set_point,
@@ -187,7 +187,7 @@ class ZoneStatusEncoder(
     def _encode_set_point(self, set_point: Optional[float]) -> int:
         if set_point:
             return utils.encode_set_point(set_point)
-        return _ZONE_STATUS_INVALID_SET_POINT
+        return _INVALID_SET_POINT
 
     def _encode_has_sensor(self, has_sensor: bool) -> int:  # noqa: FBT001
         return encoding.bool_to_bit(has_sensor, 7)
@@ -195,7 +195,7 @@ class ZoneStatusEncoder(
     def _encode_temperature(self, temperature: Optional[float]) -> int:
         if temperature:
             return utils.encode_temperature(temperature)
-        return _ZONE_STATUS_INVALID_TEMPERATURE
+        return _INVALID_TEMPERATURE
 
     def _encode_spill_active(self, spill_active: bool) -> int:  # noqa: FBT001
         return encoding.bool_to_bit(spill_active, 1)
@@ -216,24 +216,24 @@ class ZoneStatusDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: xC0_ctrl_status.ControlStatusSubHeader
+        self, buffer: bytes | bytearray, header: xC0_ctrl_status.ControlStatusSubHeader
     ) -> comms.MessageDecodeResult[ZoneStatusMessage | ZoneStatusRequest]:
         # If there is no data in the message, this is a request for Zone Status
-        if hdr.repeat_length == 0 and hdr.repeat_count == 0:
+        if header.repeat_length == 0 and header.repeat_count == 0:
             return comms.MessageDecodeResult(
                 message=ZoneStatusRequest(),
                 remaining=buffer,
             )
 
         # Otherwise decode Zone Status information for each zone:
-        if hdr.repeat_length != _ZONE_STATUS_STRUCT.size:
+        if header.repeat_length != _STRUCT.size:
             raise comms.DecodeError(
-                f"Header repeat_length ({hdr.repeat_length}) != "
-                f"Zone Status Data size ({_ZONE_STATUS_STRUCT.size})"
+                f"Header repeat_length ({header.repeat_length}) != "
+                f"Zone Status Data size ({_STRUCT.size})"
             )
 
         zones: list[ZoneStatusData] = []
-        for _ in range(hdr.repeat_count):
+        for _ in range(header.repeat_count):
             (
                 b1,
                 b2,
@@ -241,7 +241,7 @@ class ZoneStatusDecoder(
                 b4,
                 temp_raw,
                 b7,
-            ) = _ZONE_STATUS_STRUCT.unpack_from(buffer)
+            ) = _STRUCT.unpack_from(buffer)
             has_sensor = self._decode_has_sensor(b4)
             zones.append(
                 ZoneStatusData(
@@ -256,7 +256,7 @@ class ZoneStatusDecoder(
                     set_point=self._decode_set_point(set_point_raw),
                 )
             )
-            buffer = buffer[hdr.repeat_length :]
+            buffer = buffer[header.repeat_length :]
 
         return comms.MessageDecodeResult(
             message=ZoneStatusMessage(zones=zones),
@@ -280,7 +280,7 @@ class ZoneStatusDecoder(
 
     def _decode_temperature(self, has_sensor: bool, temp_raw: int) -> Optional[float]:  # noqa: FBT001
         decoded_temperature = utils.decode_temperature(temp_raw)
-        if not has_sensor or decoded_temperature > _ZONE_STATUS_MAXIMUM_TEMPERATURE:
+        if not has_sensor or decoded_temperature > _MAXIMUM_TEMPERATURE:
             return None
         return decoded_temperature
 
@@ -291,6 +291,6 @@ class ZoneStatusDecoder(
         return b2 & 0x7F
 
     def _decode_set_point(self, set_point_raw: int) -> Optional[float]:
-        if set_point_raw == _ZONE_STATUS_INVALID_SET_POINT:
+        if set_point_raw == _INVALID_SET_POINT:
             return None
         return utils.decode_set_point(set_point_raw)

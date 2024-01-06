@@ -50,26 +50,26 @@ class At4Header:
     """Length in bytes of the contained message (excluding the header)."""
 
 
-_HDR_STRUCT = struct.Struct("!2sBBBBH")
+_STRUCT = struct.Struct("!2sBBBBH")
 
-_HDR_PREFIX = b"\x55\x55"
+_PREFIX = b"\x55\x55"
 
 # The checksum excludes the header prefix.
-_CHECKSUM_DATA_START = len(_HDR_PREFIX)
+_CHECKSUM_DATA_START = len(_PREFIX)
 
 
 class HeaderEncoder(comms.HeaderEncoder[At4Header]):
     """Encoder for the AirTouch 4 header."""
 
     @override
-    def encode(self, hdr: At4Header) -> HeaderEncodeResult:
-        header_bytes = _HDR_STRUCT.pack(
-            _HDR_PREFIX,
-            hdr.to_address,
-            hdr.from_address,
-            hdr.packet_id,
-            hdr.message_id,
-            hdr.message_length,
+    def encode(self, header: At4Header) -> HeaderEncodeResult:
+        header_bytes = _STRUCT.pack(
+            _PREFIX,
+            header.to_address,
+            header.from_address,
+            header.packet_id,
+            header.message_id,
+            header.message_length,
         )
         return comms.HeaderEncodeResult(
             header_bytes=header_bytes, checksum_data=header_bytes[_CHECKSUM_DATA_START:]
@@ -82,7 +82,7 @@ class HeaderDecoder(comms.HeaderDecoder[At4Header]):
     @override
     @property
     def header_length(self) -> int:
-        return _HDR_STRUCT.size
+        return _STRUCT.size
 
     @override
     def decode(self, buffer: bytes | bytearray) -> HeaderDecodeResult[At4Header]:
@@ -93,9 +93,9 @@ class HeaderDecoder(comms.HeaderDecoder[At4Header]):
             packet_id,
             message_id,
             message_length,
-        ) = _HDR_STRUCT.unpack_from(buffer)
+        ) = _STRUCT.unpack_from(buffer)
 
-        if prefix != _HDR_PREFIX:
+        if prefix != _PREFIX:
             raise comms.DecodeError(f"Unknown header prefix: {prefix}")
 
         return comms.HeaderDecodeResult(
@@ -106,6 +106,6 @@ class HeaderDecoder(comms.HeaderDecoder[At4Header]):
                 message_id=message_id,
                 message_length=message_length,
             ),
-            remaining=buffer[_HDR_STRUCT.size :],
-            checksum_data=buffer[_CHECKSUM_DATA_START : _HDR_STRUCT.size],
+            remaining=buffer[_STRUCT.size :],
+            checksum_data=buffer[_CHECKSUM_DATA_START : _STRUCT.size],
         )

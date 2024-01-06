@@ -94,12 +94,12 @@ class AcControlMessage(comms.Message):
         return MESSAGE_ID
 
 
-_AC_CONTROL_STRUCT = struct.Struct("!BBBx")
+_STRUCT = struct.Struct("!BBBx")
 
 # Magic numbers from the interface specification.
-_AC_CONTROL_SET_POINT_CONTROL_UNCHANGED = 0x00
-_AC_CONTROL_SET_POINT_CONTROL_VALUE = 0x01
-_AC_CONTROL_SET_POINT_INVALID = 0x00  # Based on the example messages
+_SET_POINT_CONTROL_UNCHANGED = 0x00
+_SET_POINT_CONTROL_VALUE = 0x01
+_SET_POINT_INVALID = 0x00  # Based on the example messages
 
 
 class AcControlEncoder(comms.MessageEncoder[At4Header, AcControlMessage]):
@@ -107,21 +107,21 @@ class AcControlEncoder(comms.MessageEncoder[At4Header, AcControlMessage]):
 
     @override
     def size(self, _: AcControlMessage) -> int:
-        return _AC_CONTROL_STRUCT.size
+        return _STRUCT.size
 
     @override
-    def encode(self, hdr: At4Header, msg: AcControlMessage) -> bytes:
-        encoded_ac_number = self._encode_ac_number(msg.ac_number)
-        encoded_power = self._encode_power(msg.power)
-        encoded_mode = self._encode_mode(msg.mode)
-        encoded_fan_speed = self._encode_fan_speed(msg.fan_speed)
+    def encode(self, header: At4Header, message: AcControlMessage) -> bytes:
+        encoded_ac_number = self._encode_ac_number(message.ac_number)
+        encoded_power = self._encode_power(message.power)
+        encoded_mode = self._encode_mode(message.mode)
+        encoded_fan_speed = self._encode_fan_speed(message.fan_speed)
         encoded_set_point_control = self._encode_set_point_control(
-            msg.set_point_control
+            message.set_point_control
         )
 
         b1 = encoded_power + encoded_ac_number
         b2 = encoded_mode + encoded_fan_speed
-        return _AC_CONTROL_STRUCT.pack(b1, b2, encoded_set_point_control)
+        return _STRUCT.pack(b1, b2, encoded_set_point_control)
 
     def _encode_ac_number(self, ac_number: int) -> int:
         return ac_number & 0x3F
@@ -136,13 +136,13 @@ class AcControlEncoder(comms.MessageEncoder[At4Header, AcControlMessage]):
         return fan_speed.value & 0x0F
 
     def _encode_set_point_control(self, set_point_control: AcSetPointControl) -> int:
-        control_type = _AC_CONTROL_SET_POINT_CONTROL_UNCHANGED
-        value = _AC_CONTROL_SET_POINT_INVALID
+        control_type = _SET_POINT_CONTROL_UNCHANGED
+        value = _SET_POINT_INVALID
         match set_point_control:
             case AcIncreaseDecrease():
                 control_type = set_point_control.value
             case AcSetPointValue(set_point=set_point):
-                control_type = _AC_CONTROL_SET_POINT_CONTROL_VALUE
+                control_type = _SET_POINT_CONTROL_VALUE
                 value = set_point
 
         encoded_control_type = (control_type << 6) & 0xC0
@@ -157,7 +157,7 @@ class AcControlDecoder(comms.MessageDecoder[At4Header, AcControlMessage]):
     def decode(
         self, buffer: bytes | bytearray, _: At4Header
     ) -> MessageDecodeResult[AcControlMessage]:
-        (b1, b2, encoded_set_point_control) = _AC_CONTROL_STRUCT.unpack_from(buffer)
+        (b1, b2, encoded_set_point_control) = _STRUCT.unpack_from(buffer)
         return comms.MessageDecodeResult(
             message=AcControlMessage(
                 ac_number=self._decode_ac_number(b1),
@@ -168,7 +168,7 @@ class AcControlDecoder(comms.MessageDecoder[At4Header, AcControlMessage]):
                     encoded_set_point_control
                 ),
             ),
-            remaining=buffer[_AC_CONTROL_STRUCT.size :],
+            remaining=buffer[_STRUCT.size :],
         )
 
     def _decode_ac_number(self, byte1: int) -> int:
@@ -195,7 +195,7 @@ class AcControlDecoder(comms.MessageDecoder[At4Header, AcControlMessage]):
             # Not an increase/decrease command
             pass
 
-        if control_type == _AC_CONTROL_SET_POINT_CONTROL_VALUE:
+        if control_type == _SET_POINT_CONTROL_VALUE:
             return AcSetPointValue(set_point=value)
 
         return None

@@ -10,7 +10,7 @@ the AC Error Information Message, a shared Encoder and Decoder are used.
 This message is a sub-message of the Extended Message.
 """  # noqa: N999
 
-import dataclasses
+from dataclasses import dataclass
 from typing import Optional
 
 from typing_extensions import override
@@ -22,7 +22,7 @@ from pyairtouch.comms import encoding
 MESSAGE_ID = 0xFF10
 
 
-@dataclasses.dataclass
+@dataclass
 class AcErrorInformationMessage(comms.Message):
     """The Air-Conditioner Error Information Message."""
 
@@ -37,7 +37,7 @@ class AcErrorInformationMessage(comms.Message):
         return MESSAGE_ID
 
 
-@dataclasses.dataclass
+@dataclass
 class AcErrorInformationRequest(comms.Message):
     """Message to request AC Error Information."""
 
@@ -63,27 +63,31 @@ class AcErrorInformationEncoder(
     """
 
     @override
-    def size(self, msg: AcErrorInformationMessage | AcErrorInformationRequest) -> int:
-        if isinstance(msg, AcErrorInformationRequest):
+    def size(
+        self, message: AcErrorInformationMessage | AcErrorInformationRequest
+    ) -> int:
+        if isinstance(message, AcErrorInformationRequest):
             return 1  # AC Number only
         # Will result in the string being encoded twice, but we don't expect to
         # encode this message very often.
-        if msg.error_info:
-            return 2 + len(msg.error_info.encode(encoding=encoding.STRING_ENCODING))
+        if message.error_info:
+            return 2 + len(message.error_info.encode(encoding=encoding.STRING_ENCODING))
         return 2
 
     @override
     def encode(
         self,
         _: x1F_ext.ExtendedMessageSubHeader,
-        msg: AcErrorInformationMessage | AcErrorInformationRequest,
+        message: AcErrorInformationMessage | AcErrorInformationRequest,
     ) -> bytes:
         buffer = bytearray()
-        buffer.append(msg.ac_number & 0xFF)
+        buffer.append(message.ac_number & 0xFF)
 
-        if isinstance(msg, AcErrorInformationMessage):
-            if msg.error_info:
-                error_string = msg.error_info.encode(encoding=encoding.STRING_ENCODING)
+        if isinstance(message, AcErrorInformationMessage):
+            if message.error_info:
+                error_string = message.error_info.encode(
+                    encoding=encoding.STRING_ENCODING
+                )
                 buffer.append(len(error_string))
                 buffer.extend(error_string)
             else:
@@ -106,13 +110,13 @@ class AcErrorInformationDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: x1F_ext.ExtendedMessageSubHeader
+        self, buffer: bytes | bytearray, header: x1F_ext.ExtendedMessageSubHeader
     ) -> comms.MessageDecodeResult[
         AcErrorInformationMessage | AcErrorInformationRequest
     ]:
         ac_number = buffer[0]
         # If the data only contains the AC number then this is a request
-        if hdr.message_length == 1:
+        if header.message_length == 1:
             return comms.MessageDecodeResult(
                 message=AcErrorInformationRequest(ac_number=ac_number),
                 remaining=buffer[1:],

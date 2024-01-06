@@ -35,7 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 # AirTouch 5 supports set-points with a resolution of 0.1 degrees.
-_SET_POINT_RESOLUTION = 0.1
+_TARGET_TEMPERATURE_RESOLUTION = 0.1
 
 _ZONE_POWER_STATE_MAPPING = {
     zone_status_msg.ZonePowerState.OFF: pyairtouch.api.ZonePowerState.OFF,
@@ -49,7 +49,9 @@ _API_ZONE_POWER_MAPPING = {
 }
 _ZONE_CONTROL_METHOD_MAPPING = {
     zone_status_msg.ZoneControlMethod.DAMPER: pyairtouch.api.ZoneControlMethod.DAMPER,
-    zone_status_msg.ZoneControlMethod.TEMP: pyairtouch.api.ZoneControlMethod.TEMP,
+    zone_status_msg.ZoneControlMethod.TEMPERATURE: (
+        pyairtouch.api.ZoneControlMethod.TEMPERATURE
+    ),
 }
 _SENSOR_BATTERY_STATUS_MAPPING = {
     zone_status_msg.SensorBatteryStatus.NORMAL: (
@@ -145,18 +147,18 @@ class At5Zone(pyairtouch.api.Zone):
 
     @override
     @property
-    def current_temp(self) -> Optional[float]:
+    def current_temperature(self) -> Optional[float]:
         return self._zone_status.temperature
 
     @override
     @property
-    def set_point(self) -> Optional[float]:
+    def target_temperature(self) -> Optional[float]:
         return self._zone_status.set_point
 
     @override
     @property
-    def set_point_resolution(self) -> float:
-        return _SET_POINT_RESOLUTION
+    def target_temperature_resolution(self) -> float:
+        return _TARGET_TEMPERATURE_RESOLUTION
 
     @override
     @property
@@ -178,13 +180,15 @@ class At5Zone(pyairtouch.api.Zone):
         )
 
     @override
-    async def set_set_point(self, set_point: float) -> None:
+    async def set_target_temperature(self, temperature: float) -> None:
         if not self.has_temp_sensor:
             raise ValueError(
-                "Cannot change set-point for zones without a temperature sensor"
+                "Cannot change temperature for zones without a temperature sensor"
             )
         await self._send_zone_control_message(
-            zone_setting=zone_ctrl_msg.ZoneSetPointControl(round(set_point, ndigits=1))
+            zone_setting=zone_ctrl_msg.ZoneSetPointControl(
+                round(temperature, ndigits=1)
+            )
         )
 
     @override
@@ -212,7 +216,7 @@ class At5Zone(pyairtouch.api.Zone):
         ),
         zone_setting: zone_ctrl_msg.ZoneSetting = None,
     ) -> None:
-        msg = ControlStatusMessage(
+        message = ControlStatusMessage(
             zone_ctrl_msg.ZoneControlMessage(
                 [
                     zone_ctrl_msg.ZoneControlData(
@@ -223,7 +227,7 @@ class At5Zone(pyairtouch.api.Zone):
                 ]
             )
         )
-        await self._socket.send(msg)
+        await self._socket.send(message)
 
 
 _AC_POWER_STATE_MAPPING = {
@@ -287,7 +291,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
 
     def __init__(
         self,
-        ac_id: int,
+        ac_number: int,
         zones: Sequence[At5Zone],
         ac_ability: AcAbility,
         socket: pyairtouch.comms.socket.AirTouchSocket[
@@ -303,7 +307,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
             socket: Socket for communicating with the AirTouch 5.
         """
         self._ac_status = ac_status_msg.AcStatusData(
-            ac_number=ac_id,
+            ac_number=ac_number,
             power_state=ac_status_msg.AcPowerState.OFF,
             mode=ac_status_msg.AcMode.AUTO,
             fan_speed=ac_status_msg.AcFanSpeed.AUTO,
@@ -397,22 +401,22 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
 
     @override
     @property
-    def current_temp(self) -> float:
+    def current_temperature(self) -> float:
         return self._ac_status.temperature
 
     @override
     @property
-    def set_point(self) -> float:
+    def target_temperature(self) -> float:
         return self._ac_status.set_point
 
     @override
     @property
-    def set_point_resolution(self) -> float:
-        return _SET_POINT_RESOLUTION
+    def target_temperature_resolution(self) -> float:
+        return _TARGET_TEMPERATURE_RESOLUTION
 
     @override
     @property
-    def min_set_point(self) -> float:
+    def min_target_temperature(self) -> float:
         match self._ac_status.mode:
             case ac_status_msg.AcMode.HEAT:
                 return self._ac_ability.min_heat_set_point
@@ -428,7 +432,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
 
     @override
     @property
-    def max_set_point(self) -> float:
+    def max_target_temperature(self) -> float:
         match self._ac_status.mode:
             case ac_status_msg.AcMode.HEAT:
                 return self._ac_ability.max_heat_set_point
@@ -490,14 +494,15 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
         )
 
     @override
-    async def set_set_point(self, set_point: float) -> None:
+    async def set_target_temperature(self, temperature: float) -> None:
         # Round to the correct resolution.
-        rounded_set_point = round(set_point, ndigits=1)
-        # Clip the set-point to remain with the min/max values.
-        clipped_set_point = min(
-            max(self.min_set_point, rounded_set_point), self.max_set_point
+        rounded_temperature = round(temperature, ndigits=1)
+        # Clip the temperature to remain with the min/max values.
+        clipped_temperature = min(
+            max(self.min_target_temperature, rounded_temperature),
+            self.max_target_temperature,
         )
-        await self._send_ac_control_message(set_point=clipped_set_point)
+        await self._send_ac_control_message(set_point=clipped_temperature)
 
     @override
     def subscribe(self, subscriber: UpdateSubscriber) -> None:
@@ -528,7 +533,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
         ),
         set_point: Optional[float] = None,
     ) -> None:
-        msg = ControlStatusMessage(
+        message = ControlStatusMessage(
             ac_ctrl_msg.AcControlMessage(
                 [
                     ac_ctrl_msg.AcControlData(
@@ -541,7 +546,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
                 ]
             )
         )
-        await self._socket.send(msg)
+        await self._socket.send(message)
 
 
 class _AirTouchState(Enum):
@@ -723,7 +728,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 self._zones[zone_id] for zone_id in range(ac.start_zone, ac.zone_count)
             ]
             self._air_conditioners[ac.ac_number] = At5AirConditioner(
-                ac_id=ac.ac_number,
+                ac_number=ac.ac_number,
                 zones=ac_zones,
                 ac_ability=ac,
                 socket=self._socket,

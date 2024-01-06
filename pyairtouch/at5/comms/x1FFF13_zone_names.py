@@ -10,8 +10,8 @@ shared Encoder and Decoder are used.
 This message is a sub-message of the Extended Message.
 """  # noqa: N999
 
-import dataclasses
 from collections.abc import Mapping
+from dataclasses import dataclass
 from functools import reduce
 from typing import Literal
 
@@ -24,7 +24,7 @@ from pyairtouch.comms import encoding
 MESSAGE_ID = 0xFF13
 
 
-@dataclasses.dataclass
+@dataclass
 class ZoneNamesMessage(comms.Message):
     """The Zone Names Message."""
 
@@ -37,7 +37,7 @@ class ZoneNamesMessage(comms.Message):
         return MESSAGE_ID
 
 
-@dataclasses.dataclass
+@dataclass
 class ZoneNamesRequest(comms.Message):
     """Request for Zone Names."""
 
@@ -61,33 +61,33 @@ class ZoneNamesEncoder(
     """
 
     @override
-    def size(self, msg: ZoneNamesMessage | ZoneNamesRequest) -> int:
-        if isinstance(msg, ZoneNamesRequest):
-            return 0 if msg.zone_number == "ALL" else 1
+    def size(self, message: ZoneNamesMessage | ZoneNamesRequest) -> int:
+        if isinstance(message, ZoneNamesRequest):
+            return 0 if message.zone_number == "ALL" else 1
 
-        length_fields_size = len(msg.zone_names)  # One byte per zone name
+        length_fields_size = len(message.zone_names)  # One byte per zone name
         # Length calculation requires the string to be encoded twice, but we
         # don't expect to encode this message very often.
         return reduce(
             lambda total, name: total
             + len(name.encode(encoding=encoding.STRING_ENCODING)),
-            msg.zone_names.values(),
+            message.zone_names.values(),
             length_fields_size,
         )
 
     @override
     def encode(
         self,
-        hdr: x1F_ext.ExtendedMessageSubHeader,
-        msg: ZoneNamesMessage | ZoneNamesRequest,
+        header: x1F_ext.ExtendedMessageSubHeader,
+        message: ZoneNamesMessage | ZoneNamesRequest,
     ) -> bytes:
-        if isinstance(msg, ZoneNamesRequest):
-            if msg.zone_number == "ALL":
+        if isinstance(message, ZoneNamesRequest):
+            if message.zone_number == "ALL":
                 return b""  # No content
-            return bytes([msg.zone_number])
+            return bytes([message.zone_number])
 
         buffer = bytearray()
-        for zone_number, zone_name in msg.zone_names.items():
+        for zone_number, zone_name in message.zone_names.items():
             buffer.append(zone_number)
             encoded_name = zone_name.encode(encoding=encoding.STRING_ENCODING)
             buffer.append(len(encoded_name))
@@ -107,17 +107,17 @@ class ZoneNamesDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: x1F_ext.ExtendedMessageSubHeader
+        self, buffer: bytes | bytearray, header: x1F_ext.ExtendedMessageSubHeader
     ) -> comms.MessageDecodeResult[ZoneNamesMessage | ZoneNamesRequest]:
         # If there is no data, this is a request for all zones
-        if hdr.message_length == 0:
+        if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=ZoneNamesRequest(zone_number="ALL"),
                 remaining=buffer,
             )
 
         # If there is only one byte, then this is a request for a specific zone
-        if hdr.message_length == 1:
+        if header.message_length == 1:
             return comms.MessageDecodeResult(
                 message=ZoneNamesRequest(zone_number=buffer[0]),
                 remaining=buffer[1:],
@@ -126,13 +126,13 @@ class ZoneNamesDecoder(
         # Otherwise, decode zone names for one or more zones:
         offset = 0
         zone_names: dict[int, str] = {}
-        while offset < hdr.message_length:
+        while offset < header.message_length:
             zone_number = buffer[offset]
             name_length = buffer[offset + 1]
             name_start = offset + 2
             name_end = name_start + name_length
 
-            if name_end > hdr.message_length:
+            if name_end > header.message_length:
                 raise comms.DecodeError("Zone name exceeds message length")
 
             zone_name = buffer[name_start:name_end].decode(
@@ -143,10 +143,10 @@ class ZoneNamesDecoder(
 
             offset = name_end
 
-        if offset != hdr.message_length:
+        if offset != header.message_length:
             raise comms.DecodeError(
                 f"Zone names didn't consume entire message buffer. "
-                f"{hdr.message_length - offset} bytes remaining"
+                f"{header.message_length - offset} bytes remaining"
             )
 
         return comms.MessageDecodeResult(

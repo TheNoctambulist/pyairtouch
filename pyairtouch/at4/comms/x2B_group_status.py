@@ -98,11 +98,11 @@ class GroupStatusRequest(comms.Message):
         return MESSAGE_ID
 
 
-_GROUP_STATUS_STRUCT = struct.Struct("!BBBBH")
+_STRUCT = struct.Struct("!BBBBH")
 
 # Magic numbers from the interface specification.
-_GROUP_STATUS_TEMP_UNAVAILABLE = 0xFF00  # encoded
-_GROUP_STATUS_INVALID_SETPOINT = 0x00  # Based on example messages.
+_TEMP_UNAVAILABLE = 0xFF00  # encoded
+_INVALID_SETPOINT = 0x00  # Based on example messages.
 
 
 class GroupStatusEncoder(
@@ -114,24 +114,24 @@ class GroupStatusEncoder(
     """
 
     @override
-    def size(self, msg: GroupStatusMessage | GroupStatusRequest) -> int:
-        match msg:
+    def size(self, message: GroupStatusMessage | GroupStatusRequest) -> int:
+        match message:
             case GroupStatusRequest():
                 # The request is an empty message
                 return 0
             case GroupStatusMessage():
-                return _GROUP_STATUS_STRUCT.size * len(msg.groups)
+                return _STRUCT.size * len(message.groups)
 
     @override
     def encode(
-        self, hdr: At4Header, msg: GroupStatusMessage | GroupStatusRequest
+        self, header: At4Header, message: GroupStatusMessage | GroupStatusRequest
     ) -> bytes:
-        if isinstance(msg, GroupStatusRequest):
+        if isinstance(message, GroupStatusRequest):
             # The GroupStatusRequest is an empty message.
             return b""
 
         buffer = bytearray()
-        for group in msg.groups:
+        for group in message.groups:
             encoded_group_number = self._encode_group_number(group.group_number)
             encoded_power_state = self._encode_power_state(group.power_state)
             encoded_control_method = self._encode_control_method(group.control_method)
@@ -149,9 +149,7 @@ class GroupStatusEncoder(
             b2 = encoded_control_method + encoded_open_percentage
             b3 = encoded_low_battery + encoded_supports_turbo + encoded_set_point
             b56 = encoded_temperature + encoded_spill_active
-            buffer.extend(
-                _GROUP_STATUS_STRUCT.pack(b1, b2, b3, encoded_has_sensor, b56)
-            )
+            buffer.extend(_STRUCT.pack(b1, b2, b3, encoded_has_sensor, b56))
 
         return buffer
 
@@ -170,7 +168,7 @@ class GroupStatusEncoder(
     def _encode_set_point(self, set_point: Optional[int]) -> int:
         if set_point:
             return set_point & 0x3F
-        return _GROUP_STATUS_INVALID_SETPOINT
+        return _INVALID_SETPOINT
 
     def _encode_has_sensor(self, has_sensor: bool) -> int:  # noqa: FBT001
         return encoding.bool_to_bit(has_sensor, offset=7)
@@ -181,7 +179,7 @@ class GroupStatusEncoder(
     def _encode_temperature(self, temperature: Optional[float]) -> int:
         if temperature:
             return utils.encode_temperature(temperature)
-        return _GROUP_STATUS_TEMP_UNAVAILABLE
+        return _TEMP_UNAVAILABLE
 
     def _encode_spill_active(self, spill_active: bool) -> int:  # noqa: FBT001
         return encoding.bool_to_bit(spill_active, offset=4)
@@ -200,31 +198,31 @@ class GroupStatusDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: At4Header
+        self, buffer: bytes | bytearray, header: At4Header
     ) -> MessageDecodeResult[GroupStatusMessage | GroupStatusRequest]:
         # If there is no data in the message this is a request for group status.
-        if hdr.message_length == 0:
+        if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=GroupStatusRequest(),
                 remaining=buffer,
             )
 
         # Otherwise decode status information for each group:
-        if (hdr.message_length % _GROUP_STATUS_STRUCT.size) != 0:
+        if (header.message_length % _STRUCT.size) != 0:
             raise comms.DecodeError(
-                f"Message length ({hdr.message_length}) is not "
-                f"a multiple of Group Status size ({_GROUP_STATUS_STRUCT.size})."
+                f"Message length ({header.message_length}) is not "
+                f"a multiple of Group Status size ({_STRUCT.size})."
             )
 
         groups: list[GroupStatusData] = []
-        for _ in range(hdr.message_length // _GROUP_STATUS_STRUCT.size):
+        for _ in range(header.message_length // _STRUCT.size):
             (
                 b1,
                 b2,
                 b3,
                 encoded_has_sensor,
                 b56,
-            ) = _GROUP_STATUS_STRUCT.unpack_from(buffer)
+            ) = _STRUCT.unpack_from(buffer)
             has_sensor = self._decode_has_sensor(encoded_has_sensor)
             groups.append(
                 GroupStatusData(
@@ -241,7 +239,7 @@ class GroupStatusDecoder(
                 )
             )
 
-            buffer = buffer[_GROUP_STATUS_STRUCT.size :]
+            buffer = buffer[_STRUCT.size :]
 
         return comms.MessageDecodeResult(
             message=GroupStatusMessage(groups), remaining=buffer
@@ -270,7 +268,7 @@ class GroupStatusDecoder(
 
     def _decode_temperature(self, has_sensor: bool, byte56: int) -> Optional[float]:  # noqa: FBT001
         encoded_temperature = byte56 & 0xFFE0
-        if not has_sensor or encoded_temperature == _GROUP_STATUS_TEMP_UNAVAILABLE:
+        if not has_sensor or encoded_temperature == _TEMP_UNAVAILABLE:
             return None
         return utils.decode_temperature(encoded_temperature)
 

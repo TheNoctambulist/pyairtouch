@@ -15,14 +15,14 @@ from pyairtouch.at5.comms.xC020_zone_ctrl import (
 )
 
 
-def generate_header(msg: ZoneControlMessage) -> ControlStatusSubHeader:
+def generate_header(message: ZoneControlMessage) -> ControlStatusSubHeader:
     """Construct a header for the ZoneControlMessage."""
     encoder = ZoneControlEncoder()
     return ControlStatusSubHeader(
         sub_message_id=MESSAGE_ID,
-        non_repeat_length=encoder.non_repeat_size(msg),
-        repeat_length=encoder.repeat_size(msg),
-        repeat_count=encoder.repeat_count(msg),
+        non_repeat_length=encoder.non_repeat_size(message),
+        repeat_length=encoder.repeat_size(message),
+        repeat_count=encoder.repeat_count(message),
     )
 
 

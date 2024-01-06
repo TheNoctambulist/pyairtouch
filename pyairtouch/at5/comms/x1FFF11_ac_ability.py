@@ -11,9 +11,9 @@ shared Encoder and Decoder are used.
 This message is a sub-message of the Extended Message.
 """  # noqa: N999
 
-import dataclasses
 import struct
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Literal
 
 from typing_extensions import override
@@ -26,7 +26,7 @@ from pyairtouch.comms import encoding
 MESSAGE_ID = 0xFF11
 
 
-@dataclasses.dataclass
+@dataclass
 class AcAbility:
     """Encapsulates the abilities of a single air-conditioner."""
 
@@ -42,7 +42,7 @@ class AcAbility:
     max_heat_set_point: int
 
 
-@dataclasses.dataclass
+@dataclass
 class AcAbilityMessage(comms.Message):
     """The AC Ability Message."""
 
@@ -54,7 +54,7 @@ class AcAbilityMessage(comms.Message):
         return MESSAGE_ID
 
 
-@dataclasses.dataclass
+@dataclass
 class AcAbilityRequest(comms.Message):
     """A request for AC Ability."""
 
@@ -67,7 +67,7 @@ class AcAbilityRequest(comms.Message):
         return MESSAGE_ID
 
 
-_AC_ABILITY_STRUCT = struct.Struct("!BB16sBBBBBBBB")
+_STRUCT = struct.Struct("!BB16sBBBBBBBB")
 
 
 class AcAbilityEncoder(
@@ -81,36 +81,36 @@ class AcAbilityEncoder(
     """
 
     @override
-    def size(self, msg: AcAbilityMessage | AcAbilityRequest) -> int:
-        if isinstance(msg, AcAbilityRequest):
-            if msg.ac_number == "ALL":
+    def size(self, message: AcAbilityMessage | AcAbilityRequest) -> int:
+        if isinstance(message, AcAbilityRequest):
+            if message.ac_number == "ALL":
                 # No content to request information for all ACs
                 return 0
             # AC number only
             return 1
-        return _AC_ABILITY_STRUCT.size * len(msg.ac_abilities)
+        return _STRUCT.size * len(message.ac_abilities)
 
     @override
     def encode(
         self,
         _: x1F_ext.ExtendedMessageSubHeader,
-        msg: AcAbilityMessage | AcAbilityRequest,
+        message: AcAbilityMessage | AcAbilityRequest,
     ) -> bytes:
-        if isinstance(msg, AcAbilityRequest):
-            if msg.ac_number == "ALL":
+        if isinstance(message, AcAbilityRequest):
+            if message.ac_number == "ALL":
                 # No Content for an "ALL" request
                 return b""
-            return bytes([msg.ac_number])
+            return bytes([message.ac_number])
 
         buffer = bytearray()
-        for ac in msg.ac_abilities:
+        for ac in message.ac_abilities:
             following_length = 24  # As per communication protocol
             encoded_ac_name = ac.ac_name.encode(encoding=encoding.STRING_ENCODING)
             b23 = self._encode_mode_support(ac.ac_mode_support)
             b24 = self._encode_fan_speed_support(ac.fan_speed_support)
 
             buffer.extend(
-                _AC_ABILITY_STRUCT.pack(
+                _STRUCT.pack(
                     ac.ac_number,
                     following_length,
                     encoded_ac_name,
@@ -164,31 +164,31 @@ class AcAbilityDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: x1F_ext.ExtendedMessageSubHeader
+        self, buffer: bytes | bytearray, header: x1F_ext.ExtendedMessageSubHeader
     ) -> comms.MessageDecodeResult[AcAbilityMessage | AcAbilityRequest]:
         # If there is no data, this is a request for all ACs
-        if hdr.message_length == 0:
+        if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=AcAbilityRequest(ac_number="ALL"),
                 remaining=buffer,
             )
 
         # If there is only one byte, then this is a request for a specific AC
-        if hdr.message_length == 1:
+        if header.message_length == 1:
             return comms.MessageDecodeResult(
                 message=AcAbilityRequest(ac_number=buffer[0]),
                 remaining=buffer[1:],
             )
 
         # Otherwise decode ability information for one or more ACs:
-        if hdr.message_length % _AC_ABILITY_STRUCT.size != 0:
+        if header.message_length % _STRUCT.size != 0:
             raise comms.DecodeError(
-                f"Data length ({hdr.message_length}) is not a multiple of "
-                f"AC Ability information length ({_AC_ABILITY_STRUCT.size})"
+                f"Data length ({header.message_length}) is not a multiple of "
+                f"AC Ability information length ({_STRUCT.size})"
             )
 
         ac_abilities: list[AcAbility] = []
-        for _ in range(hdr.message_length // _AC_ABILITY_STRUCT.size):
+        for _ in range(header.message_length // _STRUCT.size):
             (
                 ac_number,
                 _,  # Following length
@@ -201,8 +201,8 @@ class AcAbilityDecoder(
                 max_cool_set_point,
                 min_heat_set_point,
                 max_heat_set_point,
-            ) = _AC_ABILITY_STRUCT.unpack_from(buffer)
-            buffer = buffer[_AC_ABILITY_STRUCT.size :]
+            ) = _STRUCT.unpack_from(buffer)
+            buffer = buffer[_STRUCT.size :]
 
             ac_abilities.append(
                 AcAbility(

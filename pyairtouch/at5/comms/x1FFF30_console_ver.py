@@ -10,8 +10,8 @@ shared Encoder and Decoder are used.
 This message is a sub-message of the Extended Message.
 """  # noqa: N999
 
-import dataclasses
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from typing_extensions import override
 
@@ -22,7 +22,7 @@ from pyairtouch.comms import encoding
 MESSAGE_ID = 0xFF30
 
 
-@dataclasses.dataclass
+@dataclass
 class ConsoleVersionMessage(comms.Message):
     """The Console Version Message."""
 
@@ -40,7 +40,7 @@ class ConsoleVersionMessage(comms.Message):
         return MESSAGE_ID
 
 
-@dataclasses.dataclass
+@dataclass
 class ConsoleVersionRequest(comms.Message):
     """Request for console version information."""
 
@@ -61,25 +61,27 @@ class ConsoleVersionEncoder(
     """
 
     @override
-    def size(self, msg: ConsoleVersionMessage | ConsoleVersionRequest) -> int:
-        if isinstance(msg, ConsoleVersionRequest):
+    def size(self, message: ConsoleVersionMessage | ConsoleVersionRequest) -> int:
+        if isinstance(message, ConsoleVersionRequest):
             return 0
         # Length calculation requires the string to be encoded twice, but we
         # don't expect to encode this message very often.
-        return 2 + len(",".join(msg.versions).encode(encoding=encoding.STRING_ENCODING))
+        return 2 + len(
+            ",".join(message.versions).encode(encoding=encoding.STRING_ENCODING)
+        )
 
     @override
     def encode(
         self,
         _: x1F_ext.ExtendedMessageSubHeader,
-        msg: ConsoleVersionMessage | ConsoleVersionRequest,
+        message: ConsoleVersionMessage | ConsoleVersionRequest,
     ) -> bytes:
-        if isinstance(msg, ConsoleVersionRequest):
+        if isinstance(message, ConsoleVersionRequest):
             return b""  # No content for a console version request
 
         buffer = bytearray()
-        buffer.append(1 if msg.update_available else 0)
-        encoded_versions = ",".join(msg.versions).encode(
+        buffer.append(1 if message.update_available else 0)
+        encoded_versions = ",".join(message.versions).encode(
             encoding=encoding.STRING_ENCODING
         )
         buffer.append(len(encoded_versions))
@@ -99,10 +101,10 @@ class ConsoleVersionDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: x1F_ext.ExtendedMessageSubHeader
+        self, buffer: bytes | bytearray, header: x1F_ext.ExtendedMessageSubHeader
     ) -> comms.MessageDecodeResult[ConsoleVersionMessage | ConsoleVersionRequest]:
         # If there is no data then this is a version request
-        if hdr.message_length == 0:
+        if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=ConsoleVersionRequest(),
                 remaining=buffer,

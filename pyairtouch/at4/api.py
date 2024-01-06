@@ -25,7 +25,7 @@ from pyairtouch.api import AcMode
 _LOGGER = logging.getLogger(__name__)
 
 # AirTouch 4 only supports integer set-points
-_SET_POINT_RESOLUTION = 1.0
+_TARGET_TEMPERATURE_RESOLUTION = 1.0
 
 _ZONE_POWER_STATE_MAPPING = {
     group_status_msg.GroupPowerState.OFF: pyairtouch.api.ZonePowerState.OFF,
@@ -40,7 +40,7 @@ _API_ZONE_POWER_MAPPING = {
 _ZONE_CONTROL_METHOD_MAPPING = {
     group_status_msg.GroupControlMethod.DAMPER: pyairtouch.api.ZoneControlMethod.DAMPER,
     group_status_msg.GroupControlMethod.TEMPERATURE: (
-        pyairtouch.api.ZoneControlMethod.TEMP
+        pyairtouch.api.ZoneControlMethod.TEMPERATURE
     ),
 }
 _SENSOR_BATTERY_STATUS_MAPPING = {
@@ -144,18 +144,18 @@ class At4Zone(pyairtouch.api.Zone):
 
     @override
     @property
-    def current_temp(self) -> Optional[float]:
+    def current_temperature(self) -> Optional[float]:
         return self._group_status.temperature
 
     @override
     @property
-    def set_point(self) -> Optional[float]:
+    def target_temperature(self) -> Optional[float]:
         return self._group_status.set_point
 
     @override
     @property
-    def set_point_resolution(self) -> float:
-        return _SET_POINT_RESOLUTION
+    def target_temperature_resolution(self) -> float:
+        return _TARGET_TEMPERATURE_RESOLUTION
 
     @override
     @property
@@ -177,16 +177,16 @@ class At4Zone(pyairtouch.api.Zone):
         )
 
     @override
-    async def set_set_point(self, set_point: float) -> None:
+    async def set_target_temperature(self, temperature: float) -> None:
         if not self.has_temp_sensor:
             raise ValueError(
-                "Cannot change set-point for zones without a temperature sensor"
+                "Cannot change temperature for zones without a temperature sensor"
             )
         # We keep things simple and always change the control method to align
         # with the requested setting.
         await self._send_group_control_message(
             control_method=group_ctrl_msg.GroupControlMethod.TEMPERATURE,
-            setting=group_ctrl_msg.GroupSetPointControl(set_point=round(set_point)),
+            setting=group_ctrl_msg.GroupSetPointControl(set_point=round(temperature)),
         )
 
     @override
@@ -278,7 +278,7 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
 
     def __init__(
         self,
-        ac_id: int,
+        ac_number: int,
         zones: Sequence[At4Zone],
         ac_ability: ac_ability_msg.AcAbility,
         socket: pyairtouch.comms.socket.AirTouchSocket[
@@ -294,7 +294,7 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
             socket: Socket for communiating with the AirTouch 4.
         """
         self._ac_status = ac_status_msg.AcStatusData(
-            ac_number=ac_id,
+            ac_number=ac_number,
             power_state=ac_status_msg.AcPowerState.OFF,
             mode=ac_status_msg.AcMode.AUTO,
             fan_speed=ac_status_msg.AcFanSpeed.AUTO,
@@ -386,27 +386,27 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
 
     @override
     @property
-    def current_temp(self) -> float:
+    def current_temperature(self) -> float:
         return self._ac_status.temperature
 
     @override
     @property
-    def set_point(self) -> float:
+    def target_temperature(self) -> float:
         return self._ac_status.set_point
 
     @override
     @property
-    def set_point_resolution(self) -> float:
-        return _SET_POINT_RESOLUTION
+    def target_temperature_resolution(self) -> float:
+        return _TARGET_TEMPERATURE_RESOLUTION
 
     @override
     @property
-    def min_set_point(self) -> float:
+    def min_target_temperature(self) -> float:
         return self._ac_ability.min_set_point
 
     @override
     @property
-    def max_set_point(self) -> float:
+    def max_target_temperature(self) -> float:
         return self._ac_ability.max_set_point
 
     @override
@@ -453,15 +453,15 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
         )
 
     @override
-    async def set_set_point(self, set_point: float) -> None:
+    async def set_target_temperature(self, temperature: float) -> None:
         # Round to the correct resolution
-        rounded_set_point = round(set_point)
-        rounded_min = round(self.min_set_point)
-        rounded_max = round(self.max_set_point)
-        # Clip the set-point to remain with the min/max values.
-        clipped_set_point = min(max(rounded_min, rounded_set_point), rounded_max)
+        rounded_temperature = round(temperature)
+        rounded_min = round(self.min_target_temperature)
+        rounded_max = round(self.max_target_temperature)
+        # Clip the temperature to remain with the min/max values.
+        clipped_temperature = min(max(rounded_min, rounded_temperature), rounded_max)
         await self._send_ac_control_message(
-            set_point_control=ac_ctrl_msg.AcSetPointValue(clipped_set_point)
+            set_point_control=ac_ctrl_msg.AcSetPointValue(clipped_temperature)
         )
 
     @override
@@ -687,7 +687,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
                     for zone_id in range(ac.start_group, ac.group_count)
                 ]
             self._air_conditioners[ac.ac_number] = At4AirConditioner(
-                ac_id=ac.ac_number,
+                ac_number=ac.ac_number,
                 zones=ac_zones,
                 ac_ability=ac,
                 socket=self._socket,

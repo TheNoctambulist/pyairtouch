@@ -70,7 +70,7 @@ class AcAbilityRequest(comms.Message):
         return MESSAGE_ID
 
 
-_AC_ABILITY_STRUCT = struct.Struct("!BB16sBBBBBB")
+_STRUCT = struct.Struct("!BB16sBBBBBB")
 
 
 class AcAbilityEncoder(
@@ -84,34 +84,36 @@ class AcAbilityEncoder(
     """
 
     @override
-    def size(self, msg: AcAbilityMessage | AcAbilityRequest) -> int:
-        if isinstance(msg, AcAbilityRequest):
-            if msg.ac_number == "ALL":
+    def size(self, message: AcAbilityMessage | AcAbilityRequest) -> int:
+        if isinstance(message, AcAbilityRequest):
+            if message.ac_number == "ALL":
                 # No content to request information for all ACs
                 return 0
             # AC number only
             return 1
-        return _AC_ABILITY_STRUCT.size * len(msg.ac_abilities)
+        return _STRUCT.size * len(message.ac_abilities)
 
     @override
     def encode(
-        self, hdr: ExtendedMessageSubHeader, msg: AcAbilityMessage | AcAbilityRequest
+        self,
+        header: ExtendedMessageSubHeader,
+        message: AcAbilityMessage | AcAbilityRequest,
     ) -> bytes:
-        if isinstance(msg, AcAbilityRequest):
-            if msg.ac_number == "ALL":
+        if isinstance(message, AcAbilityRequest):
+            if message.ac_number == "ALL":
                 # No content for an "ALL" request
                 return b""
-            return bytes([msg.ac_number])
+            return bytes([message.ac_number])
 
         buffer = bytearray()
-        for ac in msg.ac_abilities:
+        for ac in message.ac_abilities:
             following_length = 22  # As per interface specification.
             encoded_ac_name = ac.ac_name.encode(encoding=encoding.STRING_ENCODING)
             b23 = self._encode_mode_support(ac.ac_mode_support)
             b24 = self._encode_fan_speed_support(ac.fan_speed_support)
 
             buffer.extend(
-                _AC_ABILITY_STRUCT.pack(
+                _STRUCT.pack(
                     ac.ac_number,
                     following_length,
                     encoded_ac_name,
@@ -160,17 +162,17 @@ class AcAbilityDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: ExtendedMessageSubHeader
+        self, buffer: bytes | bytearray, header: ExtendedMessageSubHeader
     ) -> MessageDecodeResult[AcAbilityMessage | AcAbilityRequest]:
         # If there is no data, this is a request for all ACs
-        if hdr.message_length == 0:
+        if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=AcAbilityRequest(ac_number="ALL"),
                 remaining=buffer,
             )
 
         # If there is only one byte, then this is a request for a specific AC
-        if hdr.message_length == 1:
+        if header.message_length == 1:
             return comms.MessageDecodeResult(
                 message=AcAbilityRequest(ac_number=buffer[0]),
                 remaining=buffer[1:],
@@ -178,7 +180,7 @@ class AcAbilityDecoder(
 
         ac_abilities: list[AcAbility] = []
         offset = 0
-        while (offset + _AC_ABILITY_STRUCT.size) <= hdr.message_length:
+        while (offset + _STRUCT.size) <= header.message_length:
             (
                 ac_number,
                 following_length,
@@ -189,7 +191,7 @@ class AcAbilityDecoder(
                 b24,
                 min_set_point,
                 max_set_point,
-            ) = _AC_ABILITY_STRUCT.unpack_from(buffer, offset=offset)
+            ) = _STRUCT.unpack_from(buffer, offset=offset)
 
             # Newer versions of the AirTouch 4 seem to send more bytes, so use the
             # following_length to work out the offset for the next AC. Two bytes
@@ -210,9 +212,9 @@ class AcAbilityDecoder(
                 )
             )
 
-        if offset != hdr.message_length:
+        if offset != header.message_length:
             raise comms.DecodeError(
-                f"AC Ability only decoded {offset} bytes out of {hdr.message_length}"
+                f"AC Ability only decoded {offset} bytes out of {header.message_length}"
             )
 
         return comms.MessageDecodeResult(

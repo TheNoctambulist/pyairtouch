@@ -68,7 +68,7 @@ class HeaderEncodeResult:
 class HeaderEncoder(Protocol[Hdr_contra]):
     """Interface for header encoders."""
 
-    def encode(self, hdr: Hdr_contra) -> HeaderEncodeResult:
+    def encode(self, header: Hdr_contra) -> HeaderEncodeResult:
         """Encodes the header into a sequence of bytes."""
 
 
@@ -118,10 +118,10 @@ class HeaderDecoder(Protocol[Hdr_co]):
 class MessageEncoder(Protocol[Hdr_contra, Msg_contra]):
     """Encoder for messages."""
 
-    def size(self, msg: Msg_contra) -> int:
+    def size(self, message: Msg_contra) -> int:
         """Returns the size of the message in bytes."""
 
-    def encode(self, hdr: Hdr_contra, msg: Msg_contra) -> bytes:
+    def encode(self, header: Hdr_contra, message: Msg_contra) -> bytes:
         """Encodes the specified message into a sequence of bytes."""
 
 
@@ -155,7 +155,7 @@ class MessageDecoder(Protocol[Hdr_contra, Msg_co]):
     """Decoder for messages."""
 
     def decode(
-        self, buffer: bytes | bytearray, hdr: Hdr_contra
+        self, buffer: bytes | bytearray, header: Hdr_contra
     ) -> MessageDecodeResult[Msg_co]:
         """Decodes a message from the buffer.
 
@@ -167,7 +167,7 @@ class MessageDecoder(Protocol[Hdr_contra, Msg_co]):
 class HeaderFactory(Protocol[Hdr_co]):
     """A factory for creating headers."""
 
-    def create_from_message(self, msg: Message, message_length: int) -> Hdr_co:
+    def create_from_message(self, message: Message, message_length: int) -> Hdr_co:
         """Create a header for the specified message."""
 
 
@@ -198,13 +198,14 @@ class UnsupportedMessageDecoder(MessageDecoder[Hdr_contra, UnsupportedMessage]):
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, hdr: Hdr_contra
+        self, buffer: bytes | bytearray, header: Hdr_contra
     ) -> MessageDecodeResult[UnsupportedMessage]:
         return MessageDecodeResult(
             message=UnsupportedMessage(
-                unsupported_id=hdr.message_id, raw_data=buffer[: hdr.message_length]
+                unsupported_id=header.message_id,
+                raw_data=buffer[: header.message_length],
             ),
-            remaining=buffer[hdr.message_length :],
+            remaining=buffer[header.message_length :],
         )
 
 
