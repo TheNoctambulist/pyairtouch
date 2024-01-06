@@ -143,7 +143,17 @@ class AirTouchSocket(Generic[comms.Hdr]):
         task = asyncio.create_task(coro)
         # Store a reference to the task as per the create_task documentation.
         self._background_tasks.add(task)
-        task.add_done_callback(self._background_tasks.discard)
+
+        def discard_task(task: asyncio.Task[Any]) -> None:
+            self._background_tasks.discard(task)
+            with contextlib.suppress(asyncio.CancelledError):
+                ex = task.exception()
+                if ex:
+                    _LOGGER.error(
+                        "Unhandled exception in background task.", exc_info=ex
+                    )
+
+        task.add_done_callback(discard_task)
 
     async def _connect(self) -> None:
         if self.is_connected:
@@ -180,7 +190,11 @@ class AirTouchSocket(Generic[comms.Hdr]):
 
         if self._writer:
             self._writer.close()
-            await self._writer.wait_closed()
+            # wait_closed could raise an error if the socket has been closed by
+            # the other side. This will already have been logged, so just
+            # suppress it here.
+            with contextlib.suppress(OSError):
+                await self._writer.wait_closed()
 
         self.is_connected = False
         self._reader = None
