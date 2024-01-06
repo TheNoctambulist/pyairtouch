@@ -64,5 +64,5 @@ strict = true
 
 [tool.pdm]
 [tool.pdm.dev-dependencies]
-lint = ["mypy>=1.8.0", "ruff>=0.1.9"]
+dev = ["pre-commit>=3.6.0", "mypy>=1.8.0", "ruff>=0.1.9"]
 test = ["pytest>=7.4.3"]
