@@ -60,6 +60,9 @@ async def main() -> None:
     # Keep the demo running for a few minutes
     await asyncio.sleep(300)
 
+    # Shutdown the connection
+    await airtouch.shutdown()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

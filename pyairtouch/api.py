@@ -427,6 +427,12 @@ class AirTouch(Protocol):
             True if the AirTouch has been succesfully initalised, false otherwise.
         """
 
+    async def shutdown(self) -> None:
+        """Shuts down the AirTouch API and disconnects from the AirTouch system.
+
+        The API can be restarted again by calling `init()`.
+        """
+
     @property
     def initialised(self) -> bool:
         """Whether the AirTouch system has been initialised."""

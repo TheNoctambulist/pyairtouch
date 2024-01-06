@@ -599,6 +599,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
         self._state = _AirTouchState.CLOSED
         self._initialised_event = asyncio.Event()
 
+    @override
     async def init(self) -> bool:
         """Initialise the connection with the AirTouch controller.
 
@@ -614,6 +615,17 @@ class AirTouch5(pyairtouch.api.AirTouch):
         with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(self._initialised_event.wait(), timeout=5.0)
         return self._initialised_event.is_set()
+
+    @override
+    async def shutdown(self) -> None:
+        self._state = _AirTouchState.CLOSED
+        self._initialised_event.clear()
+        await self._socket.close()
+
+        # Drop references to previously discovered zones and ACs to allow
+        # garbage collection.
+        self._air_conditioners.clear()
+        self._zones.clear()
 
     @override
     @property
