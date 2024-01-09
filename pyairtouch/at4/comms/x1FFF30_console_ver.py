@@ -1,9 +1,9 @@
 """Definition of the Console Version Message (0x1FFF30).
 
-Console Version messages provide the version number of the AirTouch 5 system and
+Console Version messages provide the version number of the AirTouch 4 system and
 an indication of whether an update is available.
 
-To request the Console Version a Console Version Request must be sent to the AirTouch 5.
+To request the Console Version a Console Version Request must be sent to the AirTouch 4.
 Since the Console Version Request uses the same ID as the Console Version Message, a
 shared Encoder and Decoder are used.
 
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing_extensions import override
 
 from pyairtouch import comms
-from pyairtouch.at5.comms import x1F_ext
+from pyairtouch.at4.comms import x1F_ext
 from pyairtouch.comms import encoding
 
 MESSAGE_ID = 0xFF30
@@ -50,7 +50,7 @@ class ConsoleVersionRequest(comms.Message):
         return MESSAGE_ID
 
 
-VERSION_SEP = ","
+VERSION_SEP = "|"
 
 
 class ConsoleVersionEncoder(

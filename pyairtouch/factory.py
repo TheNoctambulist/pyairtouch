@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def connect(  # noqa: PLR0913
-    version: pyairtouch.api.AirTouchVersion,
+    model: pyairtouch.api.AirTouchModel,
     host: str,
     port: int,
     *,
@@ -37,7 +37,7 @@ def connect(  # noqa: PLR0913
     will be used.
 
     Args:
-        version: The version of the AirTouch system being connected to.
+        model: The model of the AirTouch system being connected to.
         host: Host name of the AirTouch console.
         port: Remote port number of the AirTouch console.
         airtouch_id: Optional AirTouch system ID if known.
@@ -48,16 +48,16 @@ def connect(  # noqa: PLR0913
         airtouch_id = "<airtouch-1>"
 
     if not name:
-        name = version.value
+        name = model.value
 
     if not serial:
         # If no serial is provided, generate something likely to be reasonably unique.
         serial = f"{host}-{port}"
 
-    match version:
-        case pyairtouch.api.AirTouchVersion.VERSION_4:
+    match model:
+        case pyairtouch.api.AirTouchModel.AIRTOUCH_4:
             factory = _connect_airtouch_4
-        case pyairtouch.api.AirTouchVersion.VERSION_5:
+        case pyairtouch.api.AirTouchModel.AIRTOUCH_5:
             factory = _connect_airtouch_5
     return factory(host, port, airtouch_id, name, serial)
 

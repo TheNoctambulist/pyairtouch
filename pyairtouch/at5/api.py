@@ -11,12 +11,12 @@ from typing_extensions import override
 import pyairtouch.api
 import pyairtouch.at5.comms.hdr
 import pyairtouch.at5.comms.registry
+import pyairtouch.at5.comms.x1FFF30_console_ver as console_ver_msg
 import pyairtouch.at5.comms.xC020_zone_ctrl as zone_ctrl_msg
 import pyairtouch.at5.comms.xC021_zone_status as zone_status_msg
 import pyairtouch.at5.comms.xC022_ac_ctrl as ac_ctrl_msg
 import pyairtouch.at5.comms.xC023_ac_status as ac_status_msg
 import pyairtouch.comms.socket
-from pyairtouch.api import UpdateSubscriber
 from pyairtouch.at5.comms.x1F_ext import (
     ExtendedMessage,
 )
@@ -202,11 +202,11 @@ class At5Zone(pyairtouch.api.Zone):
         )
 
     @override
-    def subscribe(self, subscriber: UpdateSubscriber) -> None:
+    def subscribe(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers.add(subscriber)
 
     @override
-    def unsubscribe(self, subscriber: UpdateSubscriber) -> None:
+    def unsubscribe(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers.discard(subscriber)
 
     async def _send_zone_control_message(
@@ -505,19 +505,19 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
         await self._send_ac_control_message(set_point=clipped_temperature)
 
     @override
-    def subscribe(self, subscriber: UpdateSubscriber) -> None:
+    def subscribe(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers.add(subscriber)
 
     @override
-    def unsubscribe(self, subscriber: UpdateSubscriber) -> None:
+    def unsubscribe(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers.discard(subscriber)
 
     @override
-    def subscribe_ac_state(self, subscriber: UpdateSubscriber) -> None:
+    def subscribe_ac_state(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers_ac_state.add(subscriber)
 
     @override
-    def unsubscribe_ac_state(self, subscriber: UpdateSubscriber) -> None:
+    def unsubscribe_ac_state(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers_ac_state.discard(subscriber)
 
     async def _zone_updated(self, _: int) -> None:
@@ -550,12 +550,22 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
 
 
 class _AirTouchState(Enum):
+    """Enum representing the state machine for the AirTouch interface."""
+
     CLOSED = auto()
+    # ↓ Open socket
     CONNECTING = auto()
+    # ↓ Connected, send ConsoleVersionRequest
+    INIT_VERSION = auto()
+    # ↓ Receive ConsoleVersionMessage, send ZoneNamesRequest
     INIT_ZONE_NAMES = auto()
+    # ↓ Receive ZoneNamesMessage, send AcAbilityRequest
     INIT_AC_ABILITY = auto()
+    # ↓ Receive AcAbilityMessage, send AcStatusRequest
     INIT_AC_STATUS = auto()
+    # ↓ ReceiveAcStatus, send ZoneStatusRequest
     INIT_ZONE_STATUS = auto()
+    # ↓ Receive ZoneStatusMessage
     CONNECTED = auto()
 
 
@@ -593,11 +603,18 @@ class AirTouch5(pyairtouch.api.AirTouch):
         self._name = name
         self._socket = socket
 
+        self._console_version = console_ver_msg.ConsoleVersionMessage(
+            update_available=False,
+            versions=[],
+        )
+
         self._air_conditioners: dict[int, At5AirConditioner] = {}
         self._zones: dict[int, At5Zone] = {}
 
         self._state = _AirTouchState.CLOSED
         self._initialised_event = asyncio.Event()
+
+        self._subscribers: set[pyairtouch.api.AirTouchSubscriber] = set()
 
     @override
     async def init(self) -> bool:
@@ -654,20 +671,46 @@ class AirTouch5(pyairtouch.api.AirTouch):
 
     @override
     @property
-    def version(self) -> pyairtouch.api.AirTouchVersion:
-        return pyairtouch.api.AirTouchVersion.VERSION_5
+    def model(self) -> pyairtouch.api.AirTouchModel:
+        return pyairtouch.api.AirTouchModel.AIRTOUCH_5
+
+    @override
+    @property
+    def update_available(self) -> bool:
+        return self._console_version.update_available
+
+    @override
+    @property
+    def console_versions(self) -> Sequence[str]:
+        return self._console_version.versions
 
     @override
     @property
     def air_conditioners(self) -> Sequence[pyairtouch.api.AirConditioner]:
         return list(self._air_conditioners.values())
 
+    @override
+    async def check_for_updates(self) -> None:
+        await self._socket.send(
+            ExtendedMessage(console_ver_msg.ConsoleVersionRequest())
+        )
+
+    @override
+    def subscribe(self, subscriber: pyairtouch.api.AirTouchSubscriber) -> None:
+        self._subscribers.add(subscriber)
+
+    @override
+    def unsubscribe(self, subscriber: pyairtouch.api.AirTouchSubscriber) -> None:
+        self._subscribers.discard(subscriber)
+
     async def _connection_changed(self, *, connected: bool) -> None:
         if connected and self._state == _AirTouchState.CONNECTING:
-            # Move into the INIT_ZONE_NAMES state by sending a ZoneNamesRequest
-            self._state = _AirTouchState.INIT_ZONE_NAMES
-            zone_names_request = ExtendedMessage(ZoneNamesRequest(zone_number="ALL"))
-            await self._socket.send(zone_names_request)
+            # Move into the INIT_VERSION state by sending a ConsoleVersionRequest
+            self._state = _AirTouchState.INIT_VERSION
+            console_version_request = ExtendedMessage(
+                console_ver_msg.ConsoleVersionRequest()
+            )
+            await self._socket.send(console_version_request)
 
     async def _message_received(
         self,
@@ -677,6 +720,17 @@ class AirTouch5(pyairtouch.api.AirTouch):
         # Process messages according to the current state.
         # Unhandled messages are silently ignored.
         match message:
+            case ExtendedMessage(console_ver_msg.ConsoleVersionMessage()) if (
+                self._state == _AirTouchState.INIT_VERSION
+            ):
+                self._console_version = message.sub_message
+                # Move to the next state
+                self._state = _AirTouchState.INIT_ZONE_NAMES
+                zone_names_request = ExtendedMessage(
+                    ZoneNamesRequest(zone_number="ALL")
+                )
+                await self._socket.send(zone_names_request)
+
             case ExtendedMessage(ZoneNamesMessage(zone_names)) if (
                 self._state == _AirTouchState.INIT_ZONE_NAMES
             ):
@@ -726,6 +780,11 @@ class AirTouch5(pyairtouch.api.AirTouch):
             ) if self._state == _AirTouchState.CONNECTED:
                 await self._process_zone_status_message(zone_statuses)
 
+            case ExtendedMessage(console_ver_msg.ConsoleVersionMessage()) if (
+                self._state == _AirTouchState.CONNECTED
+            ):
+                await self._process_console_version_update(message.sub_message)
+
     def _process_zone_names_message(self, zone_names: Mapping[int, str]) -> None:
         for zone_number, zone_name in zone_names.items():
             self._zones[zone_number] = At5Zone(
@@ -767,6 +826,12 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 _LOGGER.warning(
                     "Unknown Zone in Zone Status: %d", zone_status.zone_number
                 )
+
+    async def _process_console_version_update(
+        self, message: console_ver_msg.ConsoleVersionMessage
+    ) -> None:
+        self._console_version = message
+        await _notify_subscribers([s(self._airtouch_id) for s in self._subscribers])
 
 
 async def _notify_subscribers(callbacks: Iterable[Awaitable[Any]]) -> None:

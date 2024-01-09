@@ -17,6 +17,7 @@ from . import (
     x1FFF10_err_info,
     x1FFF11_ac_ability,
     x1FFF12_group_names,
+    x1FFF30_console_ver,
     x2A_group_ctrl,
     x2B_group_status,
     x2C_ac_ctrl,
@@ -70,6 +71,7 @@ _extended_encoder = x1F_ext.ExtendedMessageEncoder(
         x1FFF10_err_info.MESSAGE_ID: x1FFF10_err_info.AcErrorInformationEncoder(),
         x1FFF11_ac_ability.MESSAGE_ID: x1FFF11_ac_ability.AcAbilityEncoder(),
         x1FFF12_group_names.MESSAGE_ID: x1FFF12_group_names.GroupNamesEncoder(),
+        x1FFF30_console_ver.MESSAGE_ID: x1FFF30_console_ver.ConsoleVersionEncoder(),
     }
 )
 _extended_decoder = x1F_ext.ExtendedMessageDecoder(
@@ -77,6 +79,7 @@ _extended_decoder = x1F_ext.ExtendedMessageDecoder(
         x1FFF10_err_info.MESSAGE_ID: x1FFF10_err_info.AcErrorInformationDecoder(),
         x1FFF11_ac_ability.MESSAGE_ID: x1FFF11_ac_ability.AcAbilityDecoder(),
         x1FFF12_group_names.MESSAGE_ID: x1FFF12_group_names.GroupNamesDecoder(),
+        x1FFF30_console_ver.MESSAGE_ID: x1FFF30_console_ver.ConsoleVersionDecoder(),
     }
 )
 

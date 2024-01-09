@@ -15,6 +15,7 @@ import pyairtouch.at4.comms.registry
 import pyairtouch.at4.comms.x1F_ext as extended_msg
 import pyairtouch.at4.comms.x1FFF11_ac_ability as ac_ability_msg
 import pyairtouch.at4.comms.x1FFF12_group_names as group_names_msg
+import pyairtouch.at4.comms.x1FFF30_console_ver as console_ver_msg
 import pyairtouch.at4.comms.x2A_group_ctrl as group_ctrl_msg
 import pyairtouch.at4.comms.x2B_group_status as group_status_msg
 import pyairtouch.at4.comms.x2C_ac_ctrl as ac_ctrl_msg
@@ -505,12 +506,22 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
 
 
 class _AirTouchState(Enum):
+    """Enum representing the state machine for the AirTouch interface."""
+
     CLOSED = auto()
+    # ↓ Open socket
     CONNECTING = auto()
+    # ↓ Connected, send ConsoleVersionRequest
+    INIT_VERSION = auto()
+    # ↓ Receive ConsoleVersionMessage, send GroupNamesRequest
     INIT_GROUP_NAMES = auto()
+    # ↓ Receive GroupNamesMessage, send AcAbilityRequest
     INIT_AC_ABILITY = auto()
+    # ↓ Receive AcAbilityMessage, send AcStatusRequest
     INIT_AC_STATUS = auto()
+    # ↓ ReceiveAcStatus, send GroupStatusRequest
     INIT_GROUP_STATUS = auto()
+    # ↓ Receive GroupStatusMessage
     CONNECTED = auto()
 
 
@@ -548,11 +559,18 @@ class AirTouch4(pyairtouch.api.AirTouch):
         self._name = name
         self._socket = socket
 
+        self._console_version = console_ver_msg.ConsoleVersionMessage(
+            update_available=False,
+            versions=[],
+        )
+
         self._air_conditioners: dict[int, At4AirConditioner] = {}
         self._zones: dict[int, At4Zone] = {}
 
         self._state = _AirTouchState.CLOSED
         self._initialised_event = asyncio.Event()
+
+        self._subscribers: set[pyairtouch.api.AirTouchSubscriber] = set()
 
     @override
     async def init(self) -> bool:
@@ -609,29 +627,64 @@ class AirTouch4(pyairtouch.api.AirTouch):
 
     @override
     @property
-    def version(self) -> pyairtouch.api.AirTouchVersion:
-        return pyairtouch.api.AirTouchVersion.VERSION_4
+    def model(self) -> pyairtouch.api.AirTouchModel:
+        return pyairtouch.api.AirTouchModel.AIRTOUCH_4
+
+    @override
+    @property
+    def update_available(self) -> bool:
+        return self._console_version.update_available
+
+    @override
+    @property
+    def console_versions(self) -> Sequence[str]:
+        return self._console_version.versions
 
     @override
     @property
     def air_conditioners(self) -> Sequence[pyairtouch.api.AirConditioner]:
         return list(self._air_conditioners.values())
 
+    @override
+    async def check_for_updates(self) -> None:
+        await self._socket.send(
+            extended_msg.ExtendedMessage(console_ver_msg.ConsoleVersionRequest())
+        )
+
+    @override
+    def subscribe(self, subscriber: pyairtouch.api.AirTouchSubscriber) -> None:
+        self._subscribers.add(subscriber)
+
+    @override
+    def unsubscribe(self, subscriber: pyairtouch.api.AirTouchSubscriber) -> None:
+        self._subscribers.discard(subscriber)
+
     async def _connection_changed(self, *, connected: bool) -> None:
         if connected and self._state == _AirTouchState.CONNECTING:
-            # Move into the INIT_GROUP_NAMES state by sending a GroupNamesRequest
-            self._state = _AirTouchState.INIT_GROUP_NAMES
-            group_names_request = extended_msg.ExtendedMessage(
-                group_names_msg.GroupNamesRequest(group_number="ALL")
+            # Move into the INIT_VERSION state by sending a ConsoleVersionRequest
+            self._state = _AirTouchState.INIT_VERSION
+            version_request = extended_msg.ExtendedMessage(
+                console_ver_msg.ConsoleVersionRequest()
             )
-            await self._socket.send(group_names_request)
+            await self._socket.send(version_request)
 
     async def _message_received(
         self, _: pyairtouch.at4.comms.hdr.At4Header, message: pyairtouch.comms.Message
     ) -> None:
         # Process messages according to the current state.
-        # Unhandled messages are silently ignored.
+        # Unexpected messages are silently ignored.
         match message:
+            case extended_msg.ExtendedMessage(
+                console_ver_msg.ConsoleVersionMessage()
+            ) if (self._state == _AirTouchState.INIT_VERSION):
+                self._console_version = message.sub_message
+                # Move to the next state
+                self._state = _AirTouchState.INIT_GROUP_NAMES
+                group_names_request = extended_msg.ExtendedMessage(
+                    group_names_msg.GroupNamesRequest(group_number="ALL")
+                )
+                await self._socket.send(group_names_request)
+
             case extended_msg.ExtendedMessage(
                 group_names_msg.GroupNamesMessage(group_names)
             ) if (self._state == _AirTouchState.INIT_GROUP_NAMES):
@@ -676,6 +729,11 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 self._state == _AirTouchState.CONNECTED
             ):
                 await self._process_group_status_message(groups)
+
+            case extended_msg.ExtendedMessage(
+                console_ver_msg.ConsoleVersionMessage()
+            ) if (self._state == _AirTouchState.CONNECTED):
+                await self._process_console_version_update(message.sub_message)
 
     def _process_group_names_message(self, group_names: Mapping[int, str]) -> None:
         for group_number, group_name in group_names.items():
@@ -726,6 +784,12 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 _LOGGER.warning(
                     "Unknown Group in Group Status: %d", group_status.group_number
                 )
+
+    async def _process_console_version_update(
+        self, message: console_ver_msg.ConsoleVersionMessage
+    ) -> None:
+        self._console_version = message
+        await _notify_subscribers([s(self._airtouch_id) for s in self._subscribers])
 
 
 async def _notify_subscribers(callbacks: Iterable[Awaitable[Any]]) -> None:

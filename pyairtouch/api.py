@@ -11,25 +11,25 @@ from typing import Any, Optional, Protocol
 # fmt: off
 __all__ = [
     # API Enumerations
-    "AirTouchVersion",
+    "AirTouchModel",
     "AcPowerState", "AcPowerControl", "AcMode", "AcFanSpeed", "AcSpillState",
     "ZonePowerState", "ZoneControlMethod", "SensorBatteryStatus",
 
     # API Interfaces
-    "UpdateSubscriber",
+    "AirTouchSubscriber", "UpdateSubscriber",
     "Zone", "AirConditioner", "AirTouch"
 ]
 # fmt: on
 
 
-class AirTouchVersion(Enum):
-    """Supported AirTouch versions.
+class AirTouchModel(Enum):
+    """Supported AirTouch models.
 
     The value for each enum can be used as a display string.
     """
 
-    VERSION_4 = "AirTouch 4"
-    VERSION_5 = "AirTouch 5"
+    AIRTOUCH_4 = "AirTouch 4"
+    AIRTOUCH_5 = "AirTouch 5"
 
 
 class AcPowerState(Enum):
@@ -118,6 +118,12 @@ class SensorBatteryStatus(Enum):
     NORMAL = auto()
     LOW = auto()
 
+
+AirTouchSubscriber = Callable[[str], Awaitable[Any]]
+"""An interface for subscribing to AirTouch updates.
+
+The subscriber will be passed the ID of the AirTouch that has been updated.
+"""
 
 UpdateSubscriber = Callable[[int], Awaitable[Any]]
 """An interface for subscribing to Air Conditioner or Zone updates.
@@ -454,9 +460,52 @@ class AirTouch(Protocol):
         """The host name or IP address of this AirTouch system."""
 
     @property
-    def version(self) -> AirTouchVersion:
-        """The version of this AirTouch system."""
+    def model(self) -> AirTouchModel:
+        """The model of this AirTouch system."""
+
+    @property
+    def update_available(self) -> bool:
+        """Whether a software update is available for the AirTouch system.
+
+        The status of whether an update is available is periodically refreshed.
+        Use the `check_for_updates()` method to request an immediate check for
+        updates.
+        """
+
+    @property
+    def console_versions(self) -> Sequence[str]:
+        """The software version of each AirTouch console in the system.
+
+        The first version in the sequence is the version of the master console.
+        If the AirTouch interface hasn't been initialised an empty sequence will
+        be returned.
+        """
 
     @property
     def air_conditioners(self) -> Sequence[AirConditioner]:
         """The set of Air Conditioners integrated with this AirTouch system."""
+
+    async def check_for_updates(self) -> None:
+        """Poll to check for available updates.
+
+        This method returns immediatly. If an update is available, the
+        `update_available` flag will be updated and subscribers notified.
+
+        Note: Update checks will be performed periodically, there is no need to
+        use this method if the periodic checks are sufficient.
+        """
+
+    def subscribe(self, subscriber: AirTouchSubscriber) -> None:
+        """Subscribe to notifications of updates to the AirTouch.
+
+        The subscriber will be notified if the console versions or update status
+        changes.
+
+        Has no effect if the subscriber is already subscribed.
+        """
+
+    def unsubscribe(self, subscriber: AirTouchSubscriber) -> None:
+        """Unsubscribe from update notifications.
+
+        Has no effect if the subscriber is not subscribed.
+        """
