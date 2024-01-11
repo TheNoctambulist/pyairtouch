@@ -16,6 +16,7 @@ import pyairtouch.at5.comms.xC020_zone_ctrl as zone_ctrl_msg
 import pyairtouch.at5.comms.xC021_zone_status as zone_status_msg
 import pyairtouch.at5.comms.xC022_ac_ctrl as ac_ctrl_msg
 import pyairtouch.at5.comms.xC023_ac_status as ac_status_msg
+import pyairtouch.comms.heartbeat
 import pyairtouch.comms.socket
 from pyairtouch.at5.comms.x1F_ext import (
     ExtendedMessage,
@@ -579,8 +580,9 @@ This port number is statically defined within the interface specification.
 class AirTouch5(pyairtouch.api.AirTouch):
     """The main entrypoint for the AirTouch 5 API."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
+        loop: asyncio.AbstractEventLoop,
         airtouch_id: str,
         serial: str,
         name: str,
@@ -602,6 +604,25 @@ class AirTouch5(pyairtouch.api.AirTouch):
         self._serial = serial
         self._name = name
         self._socket = socket
+
+        # Using the console version request as a heartbeat also ensures that we
+        # receive timely notifications when an update is available.
+        def is_heartbeat_response(message: pyairtouch.comms.Message) -> bool:
+            if isinstance(message, ExtendedMessage):
+                # Use a local variable to keep mypy happy.
+                # mypy thinks message is of type ExtendedMessage[Any]
+                sub_message: pyairtouch.comms.Message = message.sub_message
+                return sub_message.message_id == console_ver_msg.MESSAGE_ID
+            return False
+
+        self._heartbeat_manager = pyairtouch.comms.heartbeat.HeartbeatManager(
+            loop=loop,
+            socket=socket,
+            config=pyairtouch.comms.heartbeat.HeartbeatConfig(
+                message=ExtendedMessage(console_ver_msg.ConsoleVersionRequest()),
+                response_match=is_heartbeat_response,
+            ),
+        )
 
         self._console_version = console_ver_msg.ConsoleVersionMessage(
             update_available=False,
@@ -637,6 +658,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
     async def shutdown(self) -> None:
         self._state = _AirTouchState.CLOSED
         self._initialised_event.clear()
+        await self._heartbeat_manager.stop()
         await self._socket.close()
 
         # Drop references to previously discovered zones and ACs to allow
@@ -768,6 +790,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 await self._process_zone_status_message(zone_statuses)
                 # Move to the next state
                 self._state = _AirTouchState.CONNECTED
+                await self._heartbeat_manager.start()
                 self._initialised_event.set()
 
             case ControlStatusMessage(ac_status_msg.AcStatusMessage(ac_statuses)) if (
@@ -828,15 +851,17 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 )
 
     async def _process_console_version_update(
-        self, message: console_ver_msg.ConsoleVersionMessage
+        self, console_version: console_ver_msg.ConsoleVersionMessage
     ) -> None:
-        self._console_version = message
-        await _notify_subscribers([s(self._airtouch_id) for s in self._subscribers])
+        old_version = self._console_version
+        self._console_version = console_version
+        if old_version != console_version:
+            await _notify_subscribers([s(self._airtouch_id) for s in self._subscribers])
 
 
 async def _notify_subscribers(callbacks: Iterable[Awaitable[Any]]) -> None:
     for coro in asyncio.as_completed(callbacks):
         try:
             _ = await coro
-        except Exception:  # noqa: PERF203
+        except Exception:
             _LOGGER.exception("Exception from subscriber")

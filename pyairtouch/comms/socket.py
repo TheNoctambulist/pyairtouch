@@ -18,12 +18,6 @@ _LOGGER = pyairtouch.comms.log.getLogger(__name__)
 _CONNECT_RETRY_DELAY = 2.0
 """Delay after which a connection attempt will be retried."""
 
-_CONNECTION_MONITOR_INTERVAL = 180.0
-"""Interval for checking in on the connection status.
-
-This is low cost, so we do it quite frequently.
-"""
-
 
 class NotConnectedError(RuntimeError):
     """Raised when an attempt is made to use a socket that is not connected."""
@@ -51,7 +45,6 @@ class AirTouchSocket(Generic[comms.Hdr]):
         host: str,
         port: int,
         registry: comms.MessageRegistry[comms.Hdr],
-        loop: asyncio.AbstractEventLoop,
     ) -> None:
         """Initialise the AirTouch socket.
 
@@ -59,12 +52,10 @@ class AirTouchSocket(Generic[comms.Hdr]):
             host: Host name or IP address for the AirTouch.
             port: Remote port number for the TCP connection.
             registry: Registry for message encoders and decoders.
-            loop: Event loop for scheduling background tasks.
         """
         self.host = host
         self.port = port
         self._registry = registry
-        self._loop = loop
 
         self.is_open = False
         self.is_connected = False
@@ -73,7 +64,6 @@ class AirTouchSocket(Generic[comms.Hdr]):
 
         self._reader: Optional[asyncio.StreamReader] = None
         self._writer: Optional[asyncio.StreamWriter] = None
-        self._connection_monitor_task: Optional[asyncio.Task[None]] = None
 
         self._connection_subscribers: set[ConnectionSubscriber] = set()
         self._message_subscribers: set[MessageSubscriber[comms.Hdr]] = set()
@@ -171,11 +161,8 @@ class AirTouchSocket(Generic[comms.Hdr]):
             await self._notify_connection_changed(connected=self.is_connected)
 
             self._schedule(self._read())
-            self._connection_monitor_task = await self._loop.create_task(
-                self._connection_monitor()
-            )
-        except OSError:
-            _LOGGER.debug("Unable to connect. Will try again later.")
+        except OSError as ex:
+            _LOGGER.debug("Unable to connect. Will try again later. Reason: %s", ex)
 
         if not self.is_connected:
             # Connection failed, so retry after a small delay
@@ -183,10 +170,6 @@ class AirTouchSocket(Generic[comms.Hdr]):
 
     async def _disconnect(self) -> None:
         _LOGGER.debug("_disconnect: is_connected=%s", self.is_connected)
-        if self._connection_monitor_task:
-            self._connection_monitor_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._connection_monitor_task
 
         if self._writer:
             self._writer.close()
@@ -201,7 +184,7 @@ class AirTouchSocket(Generic[comms.Hdr]):
         self._writer = None
         await self._notify_connection_changed(connected=self.is_connected)
 
-    async def _reset_connection(self) -> None:
+    async def reset_connection(self) -> None:
         """Resets the connection to the AirTouch.
 
         The connection is reset by disconnecting and re-connecting the
@@ -209,23 +192,6 @@ class AirTouchSocket(Generic[comms.Hdr]):
         """
         await self._disconnect()
         self._schedule(self._connect())
-
-    async def _connection_monitor(self) -> None:
-        """Helper co-routine to regularly check the connection status.
-
-        If no messages are sent for a while, the socket may not raise a
-        connection lost event. By regularly calling `drain()` we force a check
-        for these connection lost events.
-        """
-        try:
-            while True:  # Run until cancelled.
-                # We don't care if this drifts.
-                await asyncio.sleep(_CONNECTION_MONITOR_INTERVAL)
-                if self._writer:
-                    await self._writer.drain()
-        except OSError as ex:
-            _LOGGER.debug("Detected closed socket: %s", ex)
-            await self._reset_connection()
 
     async def _read(self) -> None:
         """The main read loop for the AirTouch socket."""
@@ -236,20 +202,20 @@ class AirTouchSocket(Generic[comms.Hdr]):
                     header, message = read_result
                     await self._notify_message_received(header, message)
                 else:
-                    await self._reset_connection()
+                    await self.reset_connection()
 
         except asyncio.IncompleteReadError:
             _LOGGER.debug("Socket closed")
             if self._writer and not self._writer.is_closing():
-                _LOGGER.debug("Socket closed by other side")
-                await self._reset_connection()
+                _LOGGER.debug("_read(): Socket closed by other side")
+                await self.reset_connection()
         except OSError as ex:
             # Usually this indicates that the socket was closed.
-            _LOGGER.debug("Socket closed: %s.", ex)
-            await self._reset_connection()
+            _LOGGER.debug("_read(): Socket error: %s.", ex)
+            await self.reset_connection()
         except Exception:
-            _LOGGER.exception("Unexpected exception in socket handling")
-            await self._reset_connection()
+            _LOGGER.exception("_read(): Unexpected exception in socket handling")
+            await self.reset_connection()
 
     async def _read_one_message(
         self,
@@ -343,8 +309,8 @@ class AirTouchSocket(Generic[comms.Hdr]):
         except OSError as ex:
             # Connection errors may turn up here rather than in the read method.
             # Usually it just means the remote end closed the socket.
-            _LOGGER.debug("Socket error %s while sending %s", ex, message)
-            await self._reset_connection()
+            _LOGGER.debug("_write(): Socket error %s while sending %s", ex, message)
+            await self.reset_connection()
 
     async def _notify_connection_changed(self, *, connected: bool) -> None:
         await self._notify_subscribers(
@@ -362,7 +328,7 @@ class AirTouchSocket(Generic[comms.Hdr]):
         for coro in asyncio.as_completed(callbacks):
             try:
                 _ = await coro
-            except Exception:  # noqa: PERF203
+            except Exception:
                 _LOGGER.exception("Exception from subscriber")
 
 

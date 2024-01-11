@@ -74,10 +74,10 @@ def _connect_airtouch_4(
         host=host,
         port=port,
         registry=at4_registry.INSTANCE,
-        loop=asyncio.get_running_loop(),
     )
 
     return at4_api.AirTouch4(
+        loop=asyncio.get_running_loop(),
         airtouch_id=airtouch_id,
         serial=serial,
         name=name,
@@ -97,10 +97,10 @@ def _connect_airtouch_5(
         host=host,
         port=port,
         registry=at5_registry.INSTANCE,
-        loop=asyncio.get_running_loop(),
     )
 
     return at5_api.AirTouch5(
+        loop=asyncio.get_running_loop(),
         airtouch_id=airtouch_id,
         serial=serial,
         name=name,
