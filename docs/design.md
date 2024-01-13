@@ -60,3 +60,14 @@ A set of default retry policies have been defined to cover the common use cases:
 `RETRY_CONNECTED`      | Used for messages that are only sent while the socket is connected.<br>Prevents retries and has a short lifetime.
 
 It is the responsiblity of the `api` implementation for each AirTouch version to identify an appropriate retry policy for each command.
+
+## AirTouch 4 Group Status Messages
+The interface specification states that Group Status updates will be published whenever the group status changes.
+However, real-world testing has shown that the AirTouch 4 console seems to get into a state where the Group Status updates stop being published until a Group Control is sent.
+This has been observed even while the AC is turned on and the zones are active.
+
+As a work-around, the AirTouch 4 API implementation includes a Group Status timeout.
+When no group status messages have been received for 5 minutes, a request is sent to obtain the latest status.
+Typical update intervals when house temperatures are stable and the AC is not running can be much longer than 5 minutes.
+However, 5 minutes has been selected to ensure smooth temperature profiles in all scenarios.
+If the Group Status received in response to the request is identical to the current status it will be ignored, so the only consequence of sending more frequent queries is increased network traffic.

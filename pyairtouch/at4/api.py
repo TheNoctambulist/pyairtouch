@@ -26,6 +26,15 @@ from pyairtouch.api import AcMode
 
 _LOGGER = logging.getLogger(__name__)
 
+_GROUP_STATUS_TIMEOUT = 300.0
+"""Timeout for group status in seconds.
+
+After this interval a request will be sent for updated group status.
+
+This is a work-around for an AirTouch 4 console bug where it stops sending group
+status updates.
+"""
+
 # AirTouch 4 only supports integer set-points
 _TARGET_TEMPERATURE_RESOLUTION = 1.0
 
@@ -569,6 +578,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 This class will take over ownership of the socket to mange the
                 connection state.
         """
+        self._loop = loop
         self._airtouch_id = airtouch_id
         self._serial = serial
         self._name = name
@@ -605,6 +615,8 @@ class AirTouch4(pyairtouch.api.AirTouch):
 
         self._state = _AirTouchState.CLOSED
         self._initialised_event = asyncio.Event()
+        self._group_status_received_event = asyncio.Event()
+        self._group_status_request_task: Optional[asyncio.Task[None]] = None
 
         self._subscribers: set[pyairtouch.api.AirTouchSubscriber] = set()
 
@@ -629,6 +641,12 @@ class AirTouch4(pyairtouch.api.AirTouch):
     async def shutdown(self) -> None:
         self._state = _AirTouchState.CLOSED
         self._initialised_event.clear()
+
+        if self._group_status_request_task:
+            self._group_status_request_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._group_status_request_task
+
         await self._heartbeat_manager.stop()
         await self._socket.close()
 
@@ -774,6 +792,9 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 # Move to the next state
                 self._state = _AirTouchState.CONNECTED
                 await self._heartbeat_manager.start()
+                self._group_status_request_task = self._loop.create_task(
+                    self._group_status_request_loop()
+                )
                 self._initialised_event.set()
 
             case ac_status_msg.AcStatusMessage(ac_statues) if (
@@ -784,6 +805,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
             case group_status_msg.GroupStatusMessage(groups) if (
                 self._state == _AirTouchState.CONNECTED
             ):
+                self._group_status_received_event.set()
                 await self._process_group_status_message(groups)
 
             case extended_msg.ExtendedMessage(
@@ -848,6 +870,30 @@ class AirTouch4(pyairtouch.api.AirTouch):
         self._console_version = console_version
         if old_version != console_version:
             await _notify_subscribers([s(self._airtouch_id) for s in self._subscribers])
+
+    async def _group_status_request_loop(self) -> None:
+        """Periodically requests updated group status.
+
+        AirTouch 4 sometimes gets stuck in a state where GroupStatus messages
+        are not published. This has been observed even while the AC is turned on
+        and regular AC Status updates are being received. As a work-around, we
+        regularly request updated Group Status if no updates have been received
+        for a while.
+        """
+        # Run until cancelled
+        while True:
+            try:
+                async with asyncio.timeout(_GROUP_STATUS_TIMEOUT) as timeout:
+                    while True:
+                        await self._group_status_received_event.wait()
+                        timeout.reschedule(self._loop.time() + _GROUP_STATUS_TIMEOUT)
+                        self._group_status_received_event.clear()
+            except asyncio.TimeoutError:
+                _LOGGER.debug("Group status timed out, requesting update")
+                await self._socket.send(
+                    message=group_status_msg.GroupStatusRequest(),
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
 
 
 async def _notify_subscribers(callbacks: Iterable[Awaitable[Any]]) -> None:

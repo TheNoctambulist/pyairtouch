@@ -276,7 +276,7 @@ class AirTouchSocket(Generic[comms.Hdr]):
         if delay:
             coro = _delay(coro, delay)
 
-        task = asyncio.create_task(coro)
+        task = self._loop.create_task(coro)
         # Store a reference to the task as per the create_task documentation.
         self._background_tasks.add(task)
 
