@@ -220,13 +220,20 @@ class At4Zone(pyairtouch.api.Zone):
         ),
         setting: group_ctrl_msg.GroupSetting = None,
     ) -> None:
+        retry_config = pyairtouch.comms.socket.RETRY_IDEMPOTENT
+        if isinstance(setting, group_ctrl_msg.GroupIncreaseDecrease) or (
+            control_method == group_ctrl_msg.GroupControlMethod.CHANGE
+        ):
+            retry_config = pyairtouch.comms.socket.RETRY_NON_IDEMPOTENT
+
         await self._socket.send(
-            group_ctrl_msg.GroupControlMessage(
+            message=group_ctrl_msg.GroupControlMessage(
                 group_number=self._group_status.group_number,
                 power=power,
                 control_method=control_method,
                 setting=setting,
-            )
+            ),
+            retry_policy=retry_config,
         )
 
 
@@ -495,14 +502,20 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
         ),
         set_point_control: ac_ctrl_msg.AcSetPointControl = None,
     ) -> None:
+        retry_config = pyairtouch.comms.socket.RETRY_IDEMPOTENT
+        if (isinstance(set_point_control, ac_ctrl_msg.AcIncreaseDecrease)) or (
+            power == ac_ctrl_msg.AcPowerControl.TOGGLE
+        ):
+            retry_config = pyairtouch.comms.socket.RETRY_NON_IDEMPOTENT
         await self._socket.send(
-            ac_ctrl_msg.AcControlMessage(
+            message=ac_ctrl_msg.AcControlMessage(
                 ac_number=self.ac_id,
                 power=power,
                 mode=mode,
                 fan_speed=fan_speed,
                 set_point_control=set_point_control,
-            )
+            ),
+            retry_policy=retry_config,
         )
 
 
@@ -672,7 +685,10 @@ class AirTouch4(pyairtouch.api.AirTouch):
     @override
     async def check_for_updates(self) -> None:
         await self._socket.send(
-            extended_msg.ExtendedMessage(console_ver_msg.ConsoleVersionRequest())
+            message=extended_msg.ExtendedMessage(
+                console_ver_msg.ConsoleVersionRequest()
+            ),
+            retry_policy=pyairtouch.comms.socket.RETRY_IDEMPOTENT,
         )
 
     @override
@@ -690,7 +706,10 @@ class AirTouch4(pyairtouch.api.AirTouch):
             version_request = extended_msg.ExtendedMessage(
                 console_ver_msg.ConsoleVersionRequest()
             )
-            await self._socket.send(version_request)
+            await self._socket.send(
+                message=version_request,
+                retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+            )
 
     async def _message_received(
         self, _: pyairtouch.at4.comms.hdr.At4Header, message: pyairtouch.comms.Message
@@ -707,7 +726,10 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 group_names_request = extended_msg.ExtendedMessage(
                     group_names_msg.GroupNamesRequest(group_number="ALL")
                 )
-                await self._socket.send(group_names_request)
+                await self._socket.send(
+                    message=group_names_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
 
             case extended_msg.ExtendedMessage(
                 group_names_msg.GroupNamesMessage(group_names)
@@ -718,7 +740,10 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 ability_request = extended_msg.ExtendedMessage(
                     ac_ability_msg.AcAbilityRequest(ac_number="ALL")
                 )
-                await self._socket.send(ability_request)
+                await self._socket.send(
+                    message=ability_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
 
             case extended_msg.ExtendedMessage(
                 ac_ability_msg.AcAbilityMessage(ac_abilities)
@@ -726,7 +751,10 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 self._process_ac_ability_message(ac_abilities)
                 # Move to the next state
                 self._state = _AirTouchState.INIT_AC_STATUS
-                await self._socket.send(ac_status_msg.AcStatusRequest())
+                await self._socket.send(
+                    message=ac_status_msg.AcStatusRequest(),
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
 
             case ac_status_msg.AcStatusMessage(ac_statuses) if (
                 self._state == _AirTouchState.INIT_AC_STATUS
@@ -734,7 +762,10 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 await self._process_ac_status_message(ac_statuses)
                 # Move to the next state
                 self._state = _AirTouchState.INIT_GROUP_STATUS
-                await self._socket.send(group_status_msg.GroupStatusRequest())
+                await self._socket.send(
+                    message=group_status_msg.GroupStatusRequest(),
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
 
             case group_status_msg.GroupStatusMessage(groups) if (
                 self._state == _AirTouchState.INIT_GROUP_STATUS

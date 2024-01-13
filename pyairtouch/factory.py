@@ -71,6 +71,7 @@ def _connect_airtouch_4(
 ) -> pyairtouch.api.AirTouch:
     """Connect to an AirTouch 4 console."""
     socket = pyairtouch.comms.socket.AirTouchSocket(
+        loop=asyncio.get_running_loop(),
         host=host,
         port=port,
         registry=at4_registry.INSTANCE,
@@ -94,6 +95,7 @@ def _connect_airtouch_5(
 ) -> at5_api.AirTouch5:
     """Connect to an AirTouch 5 console."""
     socket = pyairtouch.comms.socket.AirTouchSocket(
+        loop=asyncio.get_running_loop(),
         host=host,
         port=port,
         registry=at5_registry.INSTANCE,

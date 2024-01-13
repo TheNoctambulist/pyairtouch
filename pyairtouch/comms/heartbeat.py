@@ -133,7 +133,11 @@ class HeartbeatManager(Generic[comms.Hdr]):
     async def _send_heartbeat_message(self) -> None:
         if self._socket.is_connected:
             _LOGGER.debug("Sending heartbeat message")
-            await self._socket.send(self._config.message)
+
+            await self._socket.send(
+                message=self._config.message,
+                retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+            )
 
     async def _heartbeat_timeout_loop(self) -> None:
         """The heartbeat timeout loop implementation.

@@ -7,7 +7,9 @@ objects.
 import asyncio
 import contextlib
 import logging
+from collections import deque
 from collections.abc import Awaitable, Callable, Coroutine, Iterable
+from dataclasses import dataclass
 from typing import Any, Generic, Optional, Protocol, TypeVar
 
 import pyairtouch.comms.log
@@ -19,8 +21,12 @@ _CONNECT_RETRY_DELAY = 2.0
 """Delay after which a connection attempt will be retried."""
 
 
-class NotConnectedError(RuntimeError):
-    """Raised when an attempt is made to use a socket that is not connected."""
+class NotOpenError(RuntimeError):
+    """Raised when an attempt is made to use a socket that is not open."""
+
+
+class QueueOverflowError(RuntimeError):
+    """Raised when the socket message queue overflows."""
 
 
 class ConnectionSubscriber(Protocol):
@@ -37,11 +43,97 @@ class ConnectionSubscriber(Protocol):
 MessageSubscriber = Callable[[comms.Hdr, comms.Message], Awaitable[None]]
 
 
+@dataclass(frozen=True)
+class _MessageQueueEntry(Generic[comms.Hdr]):
+    """An entry in the message queue."""
+
+    header: comms.Hdr
+    """The header for the message."""
+    message: comms.Message
+    """The message to be sent."""
+
+    retries_remaining: int
+    """Number of remaining times this message should be retried.
+
+    If re-sending the message fails, the message will be re-added to the retry
+    queue up to retries_remaining times.
+    """
+    expiry: float
+    """Message expiry time according to the event loop's clock.
+
+    The message will not be sent or retried if the expiry has passed.
+    """
+
+
+@dataclass
+class RetryPolicy:
+    """Policy for retrying message sending."""
+
+    max_retries: int
+    """The maximum number of times this message can be retried if sending fails."""
+
+    max_lifetime: float
+    """The maximum lifetime of this message in seconds.
+
+    After this lifetime expires, an unsent message will be dropped from the
+    message buffer.
+    """
+
+
+DEFAULT_MESSAGE_LIFETIME = 30.0
+"""Default message retry lifetime in seconds."""
+
+RETRY_IDEMPOTENT = RetryPolicy(
+    max_retries=2,
+    max_lifetime=DEFAULT_MESSAGE_LIFETIME,
+)
+"""Typical retry policy for idempotent messages.
+
+Idempotent messages can be sent multiple times without any cumulative effect.
+For example, a request to turn the AC on would have no effect if the AC is
+already turned on. A higher retry count and lifetime is appropriate for these
+messages because there are no consequences if we retry an already sent message.
+"""
+
+RETRY_NON_IDEMPOTENT = RetryPolicy(
+    max_retries=0,
+    max_lifetime=DEFAULT_MESSAGE_LIFETIME,
+)
+"""Typical retry policy for non-idempotent messages.
+
+Non-idempotent messages could have unexpected effects if they are sent twice.
+Since it is not possible to guarantee that a message has not been sent under
+error conditions, retries are not permitted at all for non-idempotent messages.
+"""
+
+RETRY_CONNECTED = RetryPolicy(
+    max_retries=0,
+    max_lifetime=1.0,
+)
+"""Typical retry policy for messages only sent while connected.
+
+This retry policy is used for messages that should be dropped if the
+socket is not connected within a very short interval of being sent. Effectively
+messages that are dropped immediately if the socket is not connected.
+"""
+
+MAX_MESSAGE_QUEUE_SIZE = 10
+"""Maximum number of pending unsent messages."""
+
+
 class AirTouchSocket(Generic[comms.Hdr]):
-    """A socket for communicating with an AirTouch system."""
+    """A socket for communicating with an AirTouch system.
+
+    The socket must be opened before `send()` can be called. Sending a message
+    when the socket is open but not connected will not result in an error.
+    Messages will be buffered for a short period of time and then sent when a
+    connection is established. If the connection is not established within the
+    requested expiry time of the message it will be dropped.
+    """
 
     def __init__(
         self,
+        loop: asyncio.AbstractEventLoop,
         host: str,
         port: int,
         registry: comms.MessageRegistry[comms.Hdr],
@@ -49,10 +141,12 @@ class AirTouchSocket(Generic[comms.Hdr]):
         """Initialise the AirTouch socket.
 
         Args:
+            loop: The event loop for scheduling tasks.
             host: Host name or IP address for the AirTouch.
             port: Remote port number for the TCP connection.
             registry: Registry for message encoders and decoders.
         """
+        self._loop = loop
         self.host = host
         self.port = port
         self._registry = registry
@@ -64,6 +158,8 @@ class AirTouchSocket(Generic[comms.Hdr]):
 
         self._reader: Optional[asyncio.StreamReader] = None
         self._writer: Optional[asyncio.StreamWriter] = None
+
+        self._message_queue: deque[_MessageQueueEntry[comms.Hdr]] = deque()
 
         self._connection_subscribers: set[ConnectionSubscriber] = set()
         self._message_subscribers: set[MessageSubscriber[comms.Hdr]] = set()
@@ -80,26 +176,76 @@ class AirTouchSocket(Generic[comms.Hdr]):
             await self._disconnect()
             self.is_open = False
 
-    async def send(self, message: comms.Message) -> None:
+    async def send(self, message: comms.Message, retry_policy: RetryPolicy) -> None:
         """Send a message to the AirTouch.
 
+        If the socket is open, but not connected messages will be buffered and,
+        subject to the specified retry policy, sent at a time when the socket is
+        successfully connected.
+
         Raises:
-            NotConnectedError if the socket is not connected.
+            NotOpenError if the socket is not open.
+            QueueOverflowError if the message queue capacity is exceeded and the
+                message cannot be queued for sending.
         """
         message_encoder = self._registry.get_encoder(message.message_id)
         message_length = message_encoder.size(message)
         header = self._registry.header_factory.create_from_message(
             message, message_length
         )
-        await self._write(header, message)
+        await self.send_with_header(header, message, retry_policy)
 
-    async def send_with_header(self, header: comms.Hdr, message: comms.Message) -> None:
+    async def send_with_header(
+        self,
+        header: comms.Hdr,
+        message: comms.Message,
+        retry_policy: RetryPolicy,
+    ) -> None:
         """Send a message with a custom header to the AirTouch.
 
+        If the socket is open, but not connected messages will be buffered and,
+        subject to the specified retry policy, sent at a time when the socket is
+        successfully connected.
+
         Raises:
-            NotConnectedError if the socket is not connected.
+            NotOpenError if the socket is not open.
+            QueueOverflowError if the message queue capacity is exceeded and the
+                message cannot be queued for sending.
         """
-        await self._write(header, message)
+        if not self.is_open:
+            raise NotOpenError
+
+        self._enqueue_message(
+            _MessageQueueEntry(
+                header=header,
+                message=message,
+                retries_remaining=retry_policy.max_retries,
+                expiry=self._loop.time() + retry_policy.max_lifetime,
+            )
+        )
+        await self._drain_message_queue()
+
+    def _enqueue_message(self, entry: _MessageQueueEntry[comms.Hdr]) -> None:
+        """Add a message to the queue.
+
+        Discards any expired messages.
+
+        Raises:
+            QueueOverflowError if the message queue capacity is exceeded and the
+                message cannot be queued for sending.
+        """
+        # Drop expired messages
+        now = self._loop.time()
+        for i in reversed(range(len(self._message_queue))):
+            entry = self._message_queue[i]
+            if now >= entry.expiry:
+                del self._message_queue[i]
+                self._log_dropped_message(entry, "expired")
+
+        if len(self._message_queue) >= MAX_MESSAGE_QUEUE_SIZE:
+            raise QueueOverflowError
+
+        self._message_queue.append(entry)
 
     def subscribe_on_connection_changed(self, subscriber: ConnectionSubscriber) -> None:
         """Subscribe to receive connection change notifications."""
@@ -159,6 +305,9 @@ class AirTouchSocket(Generic[comms.Hdr]):
             self.is_connected = True
             _LOGGER.debug("Connected to %s:%d", self.host, self.port)
             await self._notify_connection_changed(connected=self.is_connected)
+
+            # Send any buffered messages
+            await self._drain_message_queue()
 
             self._schedule(self._read())
         except OSError as ex:
@@ -281,9 +430,55 @@ class AirTouchSocket(Generic[comms.Hdr]):
 
         return (header, message_result.message)
 
+    async def _drain_message_queue(self) -> None:
+        if not self.is_connected:
+            # Wait until we're connected
+            return
+
+        try:
+            while self._message_queue:
+                entry = self._message_queue.popleft()
+
+                if self._loop.time() < entry.expiry:
+                    await self._write(entry.header, entry.message)
+                else:
+                    self._log_dropped_message(entry, "expired")
+
+        except (ValueError, NotImplementedError):
+            # This indicates an error encoding this message.
+            # We shouldn't retry this message, but the connection doesn't need
+            # to be reset.
+            _LOGGER.exception("Encoding error for message %s", entry.message)
+
+        except OSError as ex:
+            # Connection errors may turn up here rather than in the read method.
+            # This would often indicate we had a half-open socket where the
+            # connection was just killed.
+            _LOGGER.debug("write: Socket error %s while sending %s", ex, entry.message)
+            if entry.retries_remaining == 0:
+                self._log_dropped_message(entry, "max-retries")
+            else:
+                # Return this message to the head of the queue for a retry
+                self._message_queue.appendleft(
+                    _MessageQueueEntry(
+                        header=entry.header,
+                        message=entry.message,
+                        retries_remaining=entry.retries_remaining - 1,
+                        expiry=entry.expiry,
+                    )
+                )
+            await self.reset_connection()
+
     async def _write(self, header: comms.Hdr, message: comms.Message) -> None:
+        """Writes a single message to the stream.
+
+        Raises:
+            OsError for any socket errors identified when writing.
+        """
+        # This pre-condition will always be satisfied, but checking here keeps
+        # mypy happy.
         if not self._writer:
-            raise NotConnectedError
+            raise ValueError("_write called when not connected.")
 
         encoded_header = self._registry.header_encoder.encode(header)
 
@@ -301,16 +496,21 @@ class AirTouchSocket(Generic[comms.Hdr]):
             all_bytes = encoded_header.header_bytes + message_bytes + crc_bytes
             _LOGGER.debug("...   Raw    : %s", all_bytes)
 
-        try:
-            self._writer.write(encoded_header.header_bytes)
-            self._writer.write(message_bytes)
-            self._writer.write(crc_bytes)
-            await self._writer.drain()
-        except OSError as ex:
-            # Connection errors may turn up here rather than in the read method.
-            # Usually it just means the remote end closed the socket.
-            _LOGGER.debug("_write(): Socket error %s while sending %s", ex, message)
-            await self.reset_connection()
+        self._writer.write(encoded_header.header_bytes)
+        self._writer.write(message_bytes)
+        self._writer.write(crc_bytes)
+        await self._writer.drain()
+
+    def _log_dropped_message(
+        self, message_entry: _MessageQueueEntry[comms.Hdr], reason: str
+    ) -> None:
+        """Helper method to log when a message has been dropped."""
+        _LOGGER.warning(
+            "Dropped message (%s):\n    %s\n    %s",
+            reason,
+            message_entry.header,
+            message_entry.message,
+        )
 
     async def _notify_connection_changed(self, *, connected: bool) -> None:
         await self._notify_subscribers(

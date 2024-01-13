@@ -228,7 +228,12 @@ class At5Zone(pyairtouch.api.Zone):
                 ]
             )
         )
-        await self._socket.send(message)
+        retry_config = pyairtouch.comms.socket.RETRY_IDEMPOTENT
+        if isinstance(zone_setting, zone_ctrl_msg.ZoneIncreaseDecrease) or (
+            zone_power == zone_ctrl_msg.ZonePowerControl.TOGGLE
+        ):
+            retry_config = pyairtouch.comms.socket.RETRY_NON_IDEMPOTENT
+        await self._socket.send(message, retry_config)
 
 
 _AC_POWER_STATE_MAPPING = {
@@ -547,7 +552,10 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
                 ]
             )
         )
-        await self._socket.send(message)
+        retry_config = pyairtouch.comms.socket.RETRY_IDEMPOTENT
+        if power == ac_ctrl_msg.AcPowerControl.TOGGLE:
+            retry_config = pyairtouch.comms.socket.RETRY_NON_IDEMPOTENT
+        await self._socket.send(message, retry_config)
 
 
 class _AirTouchState(Enum):
@@ -714,7 +722,8 @@ class AirTouch5(pyairtouch.api.AirTouch):
     @override
     async def check_for_updates(self) -> None:
         await self._socket.send(
-            ExtendedMessage(console_ver_msg.ConsoleVersionRequest())
+            message=ExtendedMessage(console_ver_msg.ConsoleVersionRequest()),
+            retry_policy=pyairtouch.comms.socket.RETRY_IDEMPOTENT,
         )
 
     @override
@@ -732,7 +741,10 @@ class AirTouch5(pyairtouch.api.AirTouch):
             console_version_request = ExtendedMessage(
                 console_ver_msg.ConsoleVersionRequest()
             )
-            await self._socket.send(console_version_request)
+            await self._socket.send(
+                message=console_version_request,
+                retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+            )
 
     async def _message_received(
         self,
@@ -751,7 +763,10 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 zone_names_request = ExtendedMessage(
                     ZoneNamesRequest(zone_number="ALL")
                 )
-                await self._socket.send(zone_names_request)
+                await self._socket.send(
+                    message=zone_names_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
 
             case ExtendedMessage(ZoneNamesMessage(zone_names)) if (
                 self._state == _AirTouchState.INIT_ZONE_NAMES
@@ -760,7 +775,10 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 # Move to the next state
                 self._state = _AirTouchState.INIT_AC_ABILITY
                 ability_request = ExtendedMessage(AcAbilityRequest(ac_number="ALL"))
-                await self._socket.send(ability_request)
+                await self._socket.send(
+                    message=ability_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
 
             case ExtendedMessage(AcAbilityMessage(ac_abilities)) if (
                 self._state == _AirTouchState.INIT_AC_ABILITY
@@ -771,7 +789,10 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 ac_status_request = ControlStatusMessage(
                     ac_status_msg.AcStatusRequest()
                 )
-                await self._socket.send(ac_status_request)
+                await self._socket.send(
+                    message=ac_status_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
 
             case ControlStatusMessage(ac_status_msg.AcStatusMessage(ac_statuses)) if (
                 self._state == _AirTouchState.INIT_AC_STATUS
@@ -782,7 +803,10 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 zone_status_request = ControlStatusMessage(
                     zone_status_msg.ZoneStatusRequest()
                 )
-                await self._socket.send(zone_status_request)
+                await self._socket.send(
+                    message=zone_status_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
 
             case ControlStatusMessage(
                 zone_status_msg.ZoneStatusMessage(zone_statuses)

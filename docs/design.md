@@ -36,4 +36,27 @@ Loss of a single heartbeat response is considered enough to trigger a connection
 Connection reset consits of closing the current TCP connection and attempting to re-establish a new connection.
 
 ### Retries
-TODO: Document retries logic
+Many of the commands that can be sent to the AirTouch system are idempotent.
+For example an AC Control command to turn the AC on, will have no effect if the AC is already turned on.
+If an error occurs when sending an idempotent command we can safely retry sending that message.
+If the message had actually been sent before the error occurred no ill-effects will be observed from sending it again.
+Enabling retries in this manner provides improved reliabilty of commanding the AirTouch into a desired state in the event of a half-open connection or other similar error conditions.
+
+To support these retries, the `AirTouchSocket` class is implemented with a message queue.
+When a message is sent, clients of the `AirTouchSocket` need to provide a retry policy.
+The retry policy defines the following properties:
+* `max_retries` for the maximum number of times to retry the message after a failed send; and
+* `max_lifetime` for the maximum duration to retain the message in the retry queue.
+
+The combination of these two properties ensures that a bad message will not get stuck in an infinite retry loop.
+They also ensure that if the connection is down for a long period of time, unexpected commands will not be sent through when the connection eventually does come back up.
+
+A set of default retry policies have been defined to cover the common use cases:
+
+ Policy                | Description 
+-----------------------|------------------------------------------------
+`RETRY_IDEMPOTENT`     | Used for idempotent commands.<br>Allows multiple retries within a 30 second interval.
+`RETRY_NON_IDEMPOTENT` | Used for non-idempotent commands.<br>Prevents retries, but allows the message to be queued for 30 seconds.
+`RETRY_CONNECTED`      | Used for messages that are only sent while the socket is connected.<br>Prevents retries and has a short lifetime.
+
+It is the responsiblity of the `api` implementation for each AirTouch version to identify an appropriate retry policy for each command.
