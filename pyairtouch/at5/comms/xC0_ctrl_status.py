@@ -137,7 +137,7 @@ class ControlStatusEncoder(comms.MessageEncoder[At5Header, ControlStatusMessage[
         return _SUB_HEADER_STRUCT.size + non_repeat_size + total_repeat_size
 
     @override
-    def encode(self, _: At5Header, message: ControlStatusMessage[Any]) -> bytes:
+    def encode(self, header: At5Header, message: ControlStatusMessage[Any]) -> bytes:
         sub_message_encoder = self._sub_message_encoder(message.sub_message)
 
         sub_message_id = message.sub_message.message_id
@@ -188,7 +188,7 @@ class ControlStatusDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, _: At5Header
+        self, buffer: bytes | bytearray, header: At5Header
     ) -> comms.MessageDecodeResult[ControlStatusMessage[comms.Message]]:
         """Decodes a control/status message from the buffer.
 

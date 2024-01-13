@@ -76,7 +76,7 @@ class ConsoleVersionEncoder(
     @override
     def encode(
         self,
-        _: x1F_ext.ExtendedMessageSubHeader,
+        header: x1F_ext.ExtendedMessageSubHeader,
         message: ConsoleVersionMessage | ConsoleVersionRequest,
     ) -> bytes:
         if isinstance(message, ConsoleVersionRequest):

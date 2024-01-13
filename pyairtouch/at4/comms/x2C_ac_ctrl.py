@@ -155,7 +155,7 @@ class AcControlDecoder(comms.MessageDecoder[At4Header, AcControlMessage]):
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, _: At4Header
+        self, buffer: bytes | bytearray, header: At4Header
     ) -> MessageDecodeResult[AcControlMessage]:
         (b1, b2, encoded_set_point_control) = _STRUCT.unpack_from(buffer)
         return comms.MessageDecodeResult(

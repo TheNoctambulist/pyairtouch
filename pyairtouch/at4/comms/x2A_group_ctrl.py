@@ -102,7 +102,7 @@ class GroupControlEncoder(comms.MessageEncoder[At4Header, GroupControlMessage]):
         return _STRUCT.size
 
     @override
-    def encode(self, _: At4Header, message: GroupControlMessage) -> bytes:
+    def encode(self, header: At4Header, message: GroupControlMessage) -> bytes:
         encoded_method = self._encode_control_method(message.control_method)
         encoded_setting, encoded_setting_value = self._encode_setting(message.setting)
         encoded_power = self._encode_power(message.power)
