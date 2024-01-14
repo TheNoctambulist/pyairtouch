@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, cast
 
 import pyairtouch.api
 import pyairtouch.at4.api as at4_api
@@ -35,6 +35,10 @@ def connect(  # noqa: PLR0913
 
     If the optional parameters are not provided, internally generated values
     will be used.
+
+    Note: Using `discover(remote_host=host)` is preferred if the reason for a
+    manual address is just that the application is operating in an environment
+    that doesn't permit UDP broadcast.
 
     Args:
         model: The model of the AirTouch system being connected to.
@@ -110,8 +114,12 @@ def _connect_airtouch_5(
     )
 
 
-async def discover() -> list[pyairtouch.api.AirTouch]:
+async def discover(remote_host: Optional[str] = None) -> list[pyairtouch.api.AirTouch]:
     """Automatically discover and connect to any AirTouch devices on the network.
+
+    Args:
+        remote_host: An optional known AirTouch host. This can be used to
+            perform discovery in networks that don't support UDP broadcast.
 
     Returns:
         A list of discovered AirTouch instances.
@@ -120,7 +128,7 @@ async def discover() -> list[pyairtouch.api.AirTouch]:
     """
     airtouches: list[pyairtouch.api.AirTouch] = []
 
-    responses = await _search()
+    responses = await _search(remote_host)
 
     for response in responses:
         match response:
@@ -153,19 +161,22 @@ _AnyDiscoveryResponse = (
     at4_discovery.At4DiscoveryResponse | at5_discovery.At5DiscoveryResponse
 )
 
+# Type declaration to keep the list comprehension below more legible.
+# mypy doesn't perform type inference in list comprehensions.
+_C = pyairtouch.comms.DiscoveryConfig[_AnyDiscoveryRequest, _AnyDiscoveryResponse]
 
-async def _search() -> list[comms.DiscoveryResponse]:
+
+async def _search(remote_host: Optional[str] = None) -> list[comms.DiscoveryResponse]:
     """Discover any AirTouch devices on the network.
 
     Returns a list containing details of any discovered AirTouch device.
     """
-    discoverers: list[
-        pyairtouch.comms.discovery.AirTouchDiscoverer[
-            _AnyDiscoveryRequest, _AnyDiscoveryResponse
-        ]
-    ] = [
-        pyairtouch.comms.discovery.AirTouchDiscoverer(at4_discovery.CONFIG),
-        pyairtouch.comms.discovery.AirTouchDiscoverer(at5_discovery.CONFIG),
+    discoverers = [
+        pyairtouch.comms.discovery.AirTouchDiscoverer(
+            discovery_config=cast(_C, config),
+            remote_host=remote_host,
+        )
+        for config in [at4_discovery.CONFIG, at5_discovery.CONFIG]
     ]
 
     responses: list[comms.DiscoveryResponse] = []

@@ -3,7 +3,7 @@
 import asyncio
 import socket
 from collections.abc import Callable, Coroutine, Sequence
-from typing import Any, Generic
+from typing import Any, Generic, Optional
 
 from typing_extensions import override
 
@@ -24,13 +24,24 @@ class AirTouchDiscoverer(Generic[comms.DiscoveryRequest_co, comms.TDiscoveryResp
     Performs discovery in accordance with a specific discovery configuration.
     """
 
-    def __init__(  # noqa: D107
+    def __init__(
         self,
         discovery_config: comms.DiscoveryConfig[
             comms.DiscoveryRequest_co, comms.TDiscoveryResponse
         ],
+        remote_host: Optional[str] = None,
     ) -> None:
+        """Initialises the AirTouch Discoverer.
+
+        Args:
+            discovery_config: discovery configuration including which messages to send.
+            remote_host: optional remote host to unicast discovery messages. If
+                not provided discovery messages will be broadcast.
+        """
         self._discovery_config = discovery_config
+        self._remote_host: str = "255.255.255.255"
+        if remote_host:
+            self._remote_host = remote_host
 
     async def search(self) -> Sequence[comms.TDiscoveryResponse]:
         """Initiate a search for AirTouch consoles on the network.
@@ -44,7 +55,7 @@ class AirTouchDiscoverer(Generic[comms.DiscoveryRequest_co, comms.TDiscoveryResp
         transport = await self._open_socket(responses)
 
         request = self._discovery_config.request_factory()
-        remote_address = ("255.255.255.255", self._discovery_config.remote_port)
+        remote_address = (self._remote_host, self._discovery_config.remote_port)
 
         count = 0
         while not responses and count < _DISCOVERY_MAX_REQUESTS:
