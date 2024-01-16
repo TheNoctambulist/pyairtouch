@@ -12,7 +12,7 @@ from pyairtouch import comms
 
 _LOGGER = pyairtouch.comms.log.getLogger(__name__)
 
-_DISCOVERY_REQUEST_INTERVAL = 1.0
+_DISCOVERY_REQUEST_INTERVAL = 0.5
 """Interval in seconds for sending discovery requests."""
 _DISCOVERY_MAX_REQUESTS = 3
 """Maximum amount of discovery requests to send before giving up."""
