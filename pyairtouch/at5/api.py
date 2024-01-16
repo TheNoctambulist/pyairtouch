@@ -745,6 +745,17 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 message=console_version_request,
                 retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
             )
+        elif connected:
+            # Request the latest status in case we've been disconnected for a
+            # while.
+            await self._socket.send(
+                message=ControlStatusMessage(ac_status_msg.AcStatusRequest()),
+                retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+            )
+            await self._socket.send(
+                message=ControlStatusMessage(zone_status_msg.ZoneStatusRequest()),
+                retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+            )
 
     async def _message_received(
         self,

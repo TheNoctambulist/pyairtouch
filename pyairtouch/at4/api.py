@@ -728,6 +728,17 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 message=version_request,
                 retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
             )
+        elif connected:
+            # Request the latest status in case we've been disconnected for a
+            # while.
+            await self._socket.send(
+                message=ac_status_msg.AcStatusRequest(),
+                retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+            )
+            await self._socket.send(
+                message=group_status_msg.GroupStatusRequest(),
+                retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+            )
 
     async def _message_received(
         self, _: pyairtouch.at4.comms.hdr.At4Header, message: pyairtouch.comms.Message
@@ -890,10 +901,11 @@ class AirTouch4(pyairtouch.api.AirTouch):
                         self._group_status_received_event.clear()
             except asyncio.TimeoutError:
                 _LOGGER.debug("Group status timed out, requesting update")
-                await self._socket.send(
-                    message=group_status_msg.GroupStatusRequest(),
-                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
-                )
+                if self._socket.is_connected:
+                    await self._socket.send(
+                        message=group_status_msg.GroupStatusRequest(),
+                        retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                    )
 
 
 async def _notify_subscribers(callbacks: Iterable[Awaitable[Any]]) -> None:
