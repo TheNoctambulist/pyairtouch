@@ -9,10 +9,6 @@ Since the Group Names Request uses the same message ID as the Group Names
 Message, a common encoder and decoder are used.
 
 This message is a sub-message of the Extended Message.
-
-The Group Names message is not documented in v1.1 of the AirTouch 4 interface
-specification. The contents of this message have been reverse engineered from
-other interface implementations.
 """  # noqa: N999
 
 from collections.abc import Mapping
@@ -34,7 +30,10 @@ class GroupNamesMessage(comms.Message):
     """The Group Names Message."""
 
     group_names: Mapping[int, str]
-    """Mapping of group number to group name."""
+    """Mapping of group number to group name.
+
+    Group numbers in range [0, MAX_GROUP_NUMBER].
+    """
 
     @override
     @property

@@ -8,18 +8,22 @@ To request the AC Ability and AC Ability Request must be sent to the AirTouch 5.
 Since the AC Ability Request uses the same ID as the AC Ability Message, a
 shared encoder and decoder are used.
 
+The contents of the AC Ability Message can change depending on the version of
+the console. This is indicated by the use of Optional fields in the message
+class.
+
 This message is a sub-message of the Extended Message.
 """  # noqa: N999
 
 import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Optional
 
 from typing_extensions import override
 
 from pyairtouch import comms
-from pyairtouch.at4.comms import x1F_ext
+from pyairtouch.at4.comms import MAX_GROUP_NUMBER, x1F_ext
 from pyairtouch.at4.comms.x1F_ext import ExtendedMessageSubHeader
 from pyairtouch.at4.comms.x2C_ac_ctrl import AcFanSpeedControl, AcModeControl
 from pyairtouch.comms import MessageDecodeResult, encoding
@@ -33,16 +37,28 @@ class AcAbility:
 
     ac_number: int
     ac_name: str
+    ac_mode_support: Mapping[AcModeControl, bool]
+    fan_speed_support: Mapping[AcFanSpeedControl, bool]
+    min_set_point: int
+    max_set_point: int
+    groups: Optional[set[int]]
+    """The set of groups that are associated with this AC.
+
+    Elements of the set will be in the range [0, MAX_GROUP_NUMBER].
+
+    This groups field is available for console version 1.2.3 and above. If
+    present this field should be used in preference to the `start_group` and
+    `group_count` fields which have been observed to have nonsense values.
+    """
     start_group: int
     group_count: int
     """If there is only one AC, the start_group and group_count are invalid.
 
     If there is only one AC, all groups belong to that single AC.
+
+    See also `groups` above, which should be used in preference to these fields
+    if present.
     """
-    ac_mode_support: Mapping[AcModeControl, bool]
-    fan_speed_support: Mapping[AcFanSpeedControl, bool]
-    min_set_point: int
-    max_set_point: int
 
 
 @dataclass
@@ -71,6 +87,13 @@ class AcAbilityRequest(comms.Message):
 
 
 _STRUCT = struct.Struct("!BB16sBBBBBB")
+_GROUP_DISPLAY_STRUCT = struct.Struct("<H")
+"""The suffix bytes for the group display mapping.
+
+Note: These bytes are little-endian with the lower numbered groups in the first byte!
+"""
+
+_FOLLOWING_LENGTH_BASE = 22
 
 
 class AcAbilityEncoder(
@@ -91,7 +114,14 @@ class AcAbilityEncoder(
                 return 0
             # AC number only
             return 1
-        return _STRUCT.size * len(message.ac_abilities)
+
+        total_size = 0
+        for ac in message.ac_abilities:
+            total_size += _STRUCT.size
+            if ac.groups is not None:
+                total_size += _GROUP_DISPLAY_STRUCT.size
+
+        return total_size
 
     @override
     def encode(
@@ -107,7 +137,13 @@ class AcAbilityEncoder(
 
         buffer = bytearray()
         for ac in message.ac_abilities:
-            following_length = 22  # As per interface specification.
+            # As per the interface specification, the following length field
+            # varies depending on the console version (whether the group display
+            # option field is present).
+            following_length = _FOLLOWING_LENGTH_BASE
+            if ac.groups is not None:
+                following_length += _GROUP_DISPLAY_STRUCT.size
+
             encoded_ac_name = ac.ac_name.encode(encoding=encoding.STRING_ENCODING)
             b23 = self._encode_mode_support(ac.ac_mode_support)
             b24 = self._encode_fan_speed_support(ac.fan_speed_support)
@@ -125,6 +161,10 @@ class AcAbilityEncoder(
                     ac.max_set_point,
                 )
             )
+            if ac.groups is not None:
+                buffer.extend(
+                    _GROUP_DISPLAY_STRUCT.pack(self._encode_group_display(ac.groups))
+                )
         return buffer
 
     def _encode_mode_support(self, mode_support: Mapping[AcModeControl, bool]) -> int:
@@ -148,6 +188,12 @@ class AcAbilityEncoder(
             + encoding.bool_to_bit(fan_speed_support[AcFanSpeedControl.POWERFUL], 5)
             + encoding.bool_to_bit(fan_speed_support[AcFanSpeedControl.TURBO], 6)
         )
+
+    def _encode_group_display(self, groups: set[int]) -> int:
+        encoded_groups = 0
+        for group in groups:
+            encoded_groups += encoding.bool_to_bit(value=True, offset=group)
+        return encoded_groups
 
 
 class AcAbilityDecoder(
@@ -180,7 +226,7 @@ class AcAbilityDecoder(
 
         ac_abilities: list[AcAbility] = []
         offset = 0
-        while (offset + _STRUCT.size) <= header.message_length:
+        while offset < header.message_length:
             (
                 ac_number,
                 following_length,
@@ -192,23 +238,28 @@ class AcAbilityDecoder(
                 min_set_point,
                 max_set_point,
             ) = _STRUCT.unpack_from(buffer, offset=offset)
+            offset += _STRUCT.size
 
-            # Newer versions of the AirTouch 4 seem to send more bytes, so use the
-            # following_length to work out the offset for the next AC. Two bytes
-            # are added to account for the AC number and the following length
-            # field itself.
-            offset += 2 + following_length
+            groups: Optional[set[int]] = None
+            if following_length == (
+                _FOLLOWING_LENGTH_BASE + _GROUP_DISPLAY_STRUCT.size
+            ):
+                (encoded_groups,) = _GROUP_DISPLAY_STRUCT.unpack_from(buffer, offset)
+                offset += _GROUP_DISPLAY_STRUCT.size
+
+                groups = self._decode_group_display(encoded_groups)
 
             ac_abilities.append(
                 AcAbility(
                     ac_number=ac_number,
                     ac_name=encoding.decode_c_string(ac_name_raw),
-                    start_group=start_group,
-                    group_count=group_count,
                     ac_mode_support=self._decode_ac_mode_support(b23),
                     fan_speed_support=self._decode_fan_speed_support(b24),
                     min_set_point=min_set_point,
                     max_set_point=max_set_point,
+                    groups=groups,
+                    start_group=start_group,
+                    group_count=group_count,
                 )
             )
 
@@ -244,4 +295,11 @@ class AcAbilityDecoder(
             AcFanSpeedControl.POWERFUL: encoding.bit_to_bool(byte24, 5),
             AcFanSpeedControl.TURBO: encoding.bit_to_bool(byte24, 6),
             AcFanSpeedControl.UNCHANGED: True,  # Always supported
+        }
+
+    def _decode_group_display(self, encoded_groups: int) -> set[int]:
+        return {
+            group_number
+            for group_number in range(MAX_GROUP_NUMBER + 1)
+            if encoding.bit_to_bool(value=encoded_groups, offset=group_number)
         }

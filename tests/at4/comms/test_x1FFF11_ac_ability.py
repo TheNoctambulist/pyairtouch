@@ -27,7 +27,7 @@ def generate_header(
     argnames=["message", "message_buffer"],
     argvalues=[
         #
-        # Examples from the interface specification.
+        # Examples from the interface specification v1.1.
         #
         (
             AcAbilityRequest(ac_number=0),
@@ -39,8 +39,6 @@ def generate_header(
                     AcAbility(
                         ac_number=0,
                         ac_name="UNIT",
-                        start_group=0,
-                        group_count=4,
                         # Example says cool, heat, fan, and auto mode,
                         # but the data is for cool, heat, dry, and auto modes.
                         # We assume the example description is incorrect and the
@@ -66,6 +64,9 @@ def generate_header(
                         },
                         min_set_point=17,
                         max_set_point=31,
+                        groups=None,
+                        start_group=0,
+                        group_count=4,
                     )
                 ]
             ),
@@ -75,7 +76,52 @@ def generate_header(
             b"\x00\x04\x17\x1D\x11\x1F",
         ),
         #
-        # AC Number and Start Group
+        # Example from the interface specification v1.6.
+        #
+        (
+            AcAbilityMessage(
+                ac_abilities=[
+                    AcAbility(
+                        ac_number=0,
+                        ac_name="UNIT",
+                        # Example says cool, heat, fan, and auto mode,
+                        # but the data is for cool, heat, dry, and auto modes.
+                        # We assume the example description is incorrect and the
+                        # spec is correct since tht specification aligns with
+                        # the ordering in the AC Control message.
+                        ac_mode_support={
+                            AcModeControl.AUTO: True,
+                            AcModeControl.HEAT: True,
+                            AcModeControl.DRY: True,
+                            AcModeControl.FAN: False,
+                            AcModeControl.COOL: True,
+                            AcModeControl.UNCHANGED: True,
+                        },
+                        fan_speed_support={
+                            AcFanSpeedControl.AUTO: True,
+                            AcFanSpeedControl.QUIET: False,
+                            AcFanSpeedControl.LOW: True,
+                            AcFanSpeedControl.MEDIUM: True,
+                            AcFanSpeedControl.HIGH: True,
+                            AcFanSpeedControl.POWERFUL: False,
+                            AcFanSpeedControl.TURBO: False,
+                            AcFanSpeedControl.UNCHANGED: True,
+                        },
+                        min_set_point=17,
+                        max_set_point=31,
+                        groups={0, 1, 2},
+                        start_group=0,
+                        group_count=4,
+                    )
+                ]
+            ),
+            # AC number and AC name
+            b"\x00\x18\x55\x4E\x49\x54\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            # Other data
+            b"\x00\x04\x17\x1D\x11\x1F\x07\x00",
+        ),
+        #
+        # AC Number and Start Group (console <v1.2.3)
         #
         (
             AcAbilityMessage(
@@ -83,8 +129,6 @@ def generate_header(
                     AcAbility(
                         ac_number=2,
                         ac_name="TESTING",
-                        start_group=3,
-                        group_count=1,
                         ac_mode_support={
                             AcModeControl.AUTO: False,
                             AcModeControl.HEAT: False,
@@ -105,6 +149,9 @@ def generate_header(
                         },
                         min_set_point=0,
                         max_set_point=0,
+                        groups=None,
+                        start_group=3,
+                        group_count=1,
                     )
                 ]
             ),
@@ -114,7 +161,7 @@ def generate_header(
             b"\x03\x01\x00\x00\x00\x00",
         ),
         #
-        # Multiple ACs
+        # Multiple ACs (console v1.2.3+)
         #
         (
             AcAbilityMessage(
@@ -122,8 +169,6 @@ def generate_header(
                     AcAbility(
                         ac_number=0,
                         ac_name="The First",
-                        start_group=0,
-                        group_count=2,
                         ac_mode_support={
                             AcModeControl.AUTO: False,
                             AcModeControl.HEAT: True,
@@ -144,12 +189,13 @@ def generate_header(
                         },
                         min_set_point=12,
                         max_set_point=42,
+                        groups={0, 1},
+                        start_group=0,
+                        group_count=0,
                     ),
                     AcAbility(
                         ac_number=1,
                         ac_name="Seconds",
-                        start_group=2,
-                        group_count=1,
                         ac_mode_support={
                             AcModeControl.AUTO: True,
                             AcModeControl.HEAT: True,
@@ -170,19 +216,104 @@ def generate_header(
                         },
                         min_set_point=18,
                         max_set_point=29,
+                        groups={
+                            2,
+                        },
+                        start_group=2,
+                        # Observed in real-world examples the group count
+                        # doesn't match the number of groups!
+                        group_count=2,
                     ),
                 ]
             ),
             # AC 0
             # AC number and AC name
-            b"\x00\x16The First\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x18The First\x00\x00\x00\x00\x00\x00\x00"
             # Other data
-            + bytes((0x00, 0x02, 0b00010010, 0b01100010, 12, 42))
+            + bytes(
+                (0x00, 0x00, 0b00010010, 0b01100010, 12, 42, 0b00000011, 0b00000000)
+            )
             # AC 1
             # AC number and AC name
-            + b"\x01\x16Seconds\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x01\x18Seconds\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             # Other data
-            + bytes((0x02, 0x01, 0b00011011, 0b00011101, 18, 29)),
+            + bytes(
+                (0x02, 0x02, 0b00011011, 0b00011101, 18, 29, 0b00000100, 0b00000000)
+            ),
+        ),
+        (
+            AcAbilityMessage(
+                ac_abilities=[
+                    AcAbility(
+                        ac_number=3,
+                        ac_name="A",
+                        ac_mode_support={
+                            AcModeControl.AUTO: False,
+                            AcModeControl.HEAT: True,
+                            AcModeControl.DRY: False,
+                            AcModeControl.FAN: False,
+                            AcModeControl.COOL: True,
+                            AcModeControl.UNCHANGED: True,
+                        },
+                        fan_speed_support={
+                            AcFanSpeedControl.AUTO: False,
+                            AcFanSpeedControl.QUIET: True,
+                            AcFanSpeedControl.LOW: False,
+                            AcFanSpeedControl.MEDIUM: False,
+                            AcFanSpeedControl.HIGH: False,
+                            AcFanSpeedControl.POWERFUL: True,
+                            AcFanSpeedControl.TURBO: True,
+                            AcFanSpeedControl.UNCHANGED: True,
+                        },
+                        min_set_point=12,
+                        max_set_point=42,
+                        groups={10, 14},
+                        start_group=0,
+                        group_count=0,
+                    ),
+                    AcAbility(
+                        ac_number=1,
+                        ac_name="Seconds~`*/-=+#$",
+                        ac_mode_support={
+                            AcModeControl.AUTO: True,
+                            AcModeControl.HEAT: True,
+                            AcModeControl.DRY: False,
+                            AcModeControl.FAN: True,
+                            AcModeControl.COOL: True,
+                            AcModeControl.UNCHANGED: True,
+                        },
+                        fan_speed_support={
+                            AcFanSpeedControl.AUTO: True,
+                            AcFanSpeedControl.QUIET: False,
+                            AcFanSpeedControl.LOW: True,
+                            AcFanSpeedControl.MEDIUM: True,
+                            AcFanSpeedControl.HIGH: True,
+                            AcFanSpeedControl.POWERFUL: False,
+                            AcFanSpeedControl.TURBO: False,
+                            AcFanSpeedControl.UNCHANGED: True,
+                        },
+                        min_set_point=18,
+                        max_set_point=29,
+                        groups={2, 7, 13},
+                        start_group=0,
+                        group_count=0,
+                    ),
+                ]
+            ),
+            # AC 3
+            # AC number and AC name
+            b"\x03\x18A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            # Other data
+            + bytes(
+                (0x00, 0x00, 0b00010010, 0b01100010, 12, 42, 0b00000000, 0b01000100)
+            )
+            # AC 1
+            # AC number and AC name
+            + b"\x01\x18Seconds~`*/-=+#$"
+            # Other data
+            + bytes(
+                (0x00, 0x00, 0b00011011, 0b00011101, 18, 29, 0b10000100, 0b00100000)
+            ),
         ),
     ],
 )

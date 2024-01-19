@@ -161,6 +161,10 @@ class MessageDecoder(Protocol[Hdr_contra, Msg_co]):
 
         Returns:
             The decoded message and any remaining bytes in the buffer.
+
+        Raises:
+            DecodeError if any errors occurred decoding the message.
+            ValueError if there are not enough bytes in the buffer.
         """
 
 

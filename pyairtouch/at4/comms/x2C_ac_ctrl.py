@@ -99,7 +99,7 @@ _STRUCT = struct.Struct("!BBBx")
 # Magic numbers from the interface specification.
 _SET_POINT_CONTROL_UNCHANGED = 0x00
 _SET_POINT_CONTROL_VALUE = 0x01
-_SET_POINT_INVALID = 0x00  # Based on the example messages
+_SET_POINT_INVALID = 0x3F
 
 
 class AcControlEncoder(comms.MessageEncoder[At4Header, AcControlMessage]):

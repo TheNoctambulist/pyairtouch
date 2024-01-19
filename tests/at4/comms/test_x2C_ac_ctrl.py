@@ -40,7 +40,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.UNCHANGED,
                 set_point_control=None,
             ),
-            bytes((0x81, 0xFF, 0x00, 0x00)),
+            bytes((0x81, 0xFF, 0x3F, 0x00)),
         ),
         (
             AcControlMessage(
@@ -50,7 +50,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.AUTO,
                 set_point_control=None,
             ),
-            bytes((0x00, 0x40, 0x00, 0x00)),
+            bytes((0x00, 0x40, 0x3F, 0x00)),
         ),
         #
         # Power Control
@@ -63,7 +63,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.UNCHANGED,
                 set_point_control=None,
             ),
-            bytes((0b01000000, 0xFF, 0x00, 0x00)),
+            bytes((0b01000000, 0xFF, 0x3F, 0x00)),
         ),
         (
             AcControlMessage(
@@ -73,7 +73,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.UNCHANGED,
                 set_point_control=None,
             ),
-            bytes((0b11000000, 0xFF, 0x00, 0x00)),
+            bytes((0b11000000, 0xFF, 0x3F, 0x00)),
         ),
         #
         # Mode Control
@@ -86,7 +86,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.UNCHANGED,
                 set_point_control=None,
             ),
-            bytes((0x00, 0b00001111, 0x00, 0x00)),
+            bytes((0x00, 0b00001111, 0x3F, 0x00)),
         ),
         (
             AcControlMessage(
@@ -96,7 +96,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.UNCHANGED,
                 set_point_control=None,
             ),
-            bytes((0x00, 0b00011111, 0x00, 0x00)),
+            bytes((0x00, 0b00011111, 0x3F, 0x00)),
         ),
         (
             AcControlMessage(
@@ -106,7 +106,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.UNCHANGED,
                 set_point_control=None,
             ),
-            bytes((0x00, 0b00101111, 0x00, 0x00)),
+            bytes((0x00, 0b00101111, 0x3F, 0x00)),
         ),
         (
             AcControlMessage(
@@ -116,7 +116,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.UNCHANGED,
                 set_point_control=None,
             ),
-            bytes((0x00, 0b00111111, 0x00, 0x00)),
+            bytes((0x00, 0b00111111, 0x3F, 0x00)),
         ),
         #
         # Fan Speed Control
@@ -129,7 +129,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.QUIET,
                 set_point_control=None,
             ),
-            bytes((0x00, 0b11110001, 0x00, 0x00)),
+            bytes((0x00, 0b11110001, 0x3F, 0x00)),
         ),
         (
             AcControlMessage(
@@ -139,7 +139,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.HIGH,
                 set_point_control=None,
             ),
-            bytes((0x00, 0b11110100, 0x00, 0x00)),
+            bytes((0x00, 0b11110100, 0x3F, 0x00)),
         ),
         (
             AcControlMessage(
@@ -149,7 +149,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.TURBO,
                 set_point_control=None,
             ),
-            bytes((0x00, 0b11110110, 0x00, 0x00)),
+            bytes((0x00, 0b11110110, 0x3F, 0x00)),
         ),
         #
         # Set-point Control
@@ -172,7 +172,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.UNCHANGED,
                 set_point_control=AcIncreaseDecrease.DECREASE,
             ),
-            bytes((0x00, 0xFF, 0b10000000, 0x00)),
+            bytes((0x00, 0xFF, 0b10111111, 0x00)),
         ),
         (
             AcControlMessage(
@@ -182,7 +182,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
                 fan_speed=AcFanSpeedControl.UNCHANGED,
                 set_point_control=AcIncreaseDecrease.INCREASE,
             ),
-            bytes((0x00, 0xFF, 0b11000000, 0x00)),
+            bytes((0x00, 0xFF, 0b11111111, 0x00)),
         ),
     ],
 )

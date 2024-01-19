@@ -836,15 +836,28 @@ class AirTouch4(pyairtouch.api.AirTouch):
         self, ac_abilities: Sequence[ac_ability_msg.AcAbility]
     ) -> None:
         for ac in ac_abilities:
-            if len(ac_abilities) == 1:
-                # As per the communication protocol, if there's only one AC then
-                # all zones belong to it.
+            # Use the new groups field in preference to the old start/count fields.
+            # group_count seems to be incorrect for newer console versions so it
+            # can't be relied on.
+            if ac.groups is not None:
+                ac_zones = [self._zones[zone_id] for zone_id in ac.groups]
+
+            elif len(ac_abilities) == 1:
+                # As per the interface specifications, if there's only one AC
+                # then all zones belong to it. Real-world messages have shown
+                # that the group_count can be zero for the first AC when there
+                # is only one AC.
                 ac_zones = list(self._zones.values())
+
             else:
+                # This is probably an old console which typically wouldn't be
+                # expected in the wild, but we'll just have to trust the
+                # group_count here.
                 ac_zones = [
                     self._zones[zone_id]
                     for zone_id in range(ac.start_group, ac.group_count)
                 ]
+
             self._air_conditioners[ac.ac_number] = At4AirConditioner(
                 ac_number=ac.ac_number,
                 zones=ac_zones,
