@@ -86,6 +86,8 @@ class AcSpillState(Enum):
 
     Identifies whether the Air-Conditioner's spill or bypass mode is active.
     Bypass mode is only supported in ACs that have a bypass duct installed.
+
+    The AirTouch 4 doesn't report the bypass state.
     """
 
     NONE = auto()
@@ -200,6 +202,10 @@ class Zone(Protocol):
     @property
     def current_damper_percentage(self) -> int:
         """Current damper opening percentage.
+
+        The damper percentage may remain non-zero even if the zone is turned
+        off. The value represents the damper percentage that will be set if the
+        zone is turned on.
 
         Returns:
             The current damper opening percentage as a integer in the range [0, 100].

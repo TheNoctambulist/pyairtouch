@@ -15,6 +15,7 @@ This message is a sub-message of the Control Command and Status Message.
 """  # noqa: N999
 
 import enum
+import logging
 import struct
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -26,6 +27,8 @@ from pyairtouch.at5.comms import utils, xC0_ctrl_status
 from pyairtouch.comms import encoding
 
 MESSAGE_ID = 0x23
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class AcPowerState(enum.Enum):
@@ -214,6 +217,12 @@ class AcStatusDecoder(
 ):
     """Decoder for the AC Status Message and Request."""
 
+    def __init__(self) -> None:
+        """Initialise the AcStatusDecoder."""
+        # Avoid repeated logging of message length mismatches if the console has
+        # an upgraded protocol.
+        self._mismatch_logged = False
+
     @override
     def decode(
         self, buffer: bytes | bytearray, header: xC0_ctrl_status.ControlStatusSubHeader
@@ -226,11 +235,14 @@ class AcStatusDecoder(
             )
 
         # Otherwise decode AC Status information for each AC:
-        if header.repeat_length != _STRUCT.size:
-            raise comms.DecodeError(
-                f"Header repeat_length ({header.repeat_length}) != "
-                f"AC Status Data size ({_STRUCT.size})"
+        if header.repeat_length != _STRUCT.size and not self._mismatch_logged:
+            _LOGGER.info(
+                "Header repeat_length (%d) != AC Status Data size (%d). "
+                "Ignoring extra bytes",
+                header.repeat_length,
+                _STRUCT.size,
             )
+            self._mismatch_logged = True
 
         acs: list[AcStatusData] = []
         for _ in range(header.repeat_count):
@@ -257,7 +269,8 @@ class AcStatusDecoder(
                     error_code=error_code,
                 )
             )
-            buffer = buffer[_STRUCT.size :]
+            # Progress by the repeat length which will just skip over any unknown bytes.
+            buffer = buffer[header.repeat_length :]
 
         return comms.MessageDecodeResult(
             message=AcStatusMessage(acs),
