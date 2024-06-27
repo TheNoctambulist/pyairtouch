@@ -197,7 +197,7 @@ class ZoneStatusEncoder(
 
     def _encode_temperature(self, temperature: Optional[float]) -> int:
         if temperature:
-            return utils.encode_temperature(temperature)
+            return utils.encode_temperature(temperature) & 0x07FF
         return _INVALID_TEMPERATURE
 
     def _encode_spill_active(self, spill_active: bool) -> int:  # noqa: FBT001
@@ -292,7 +292,7 @@ class ZoneStatusDecoder(
         return encoding.bit_to_bool(byte4, 7)
 
     def _decode_temperature(self, has_sensor: bool, temp_raw: int) -> Optional[float]:  # noqa: FBT001
-        decoded_temperature = utils.decode_temperature(temp_raw)
+        decoded_temperature = utils.decode_temperature(temp_raw & 0x07FF)
         if not has_sensor or decoded_temperature > _MAXIMUM_TEMPERATURE:
             return None
         return decoded_temperature

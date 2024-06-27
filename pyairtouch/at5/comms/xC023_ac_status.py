@@ -114,7 +114,12 @@ class AcStatusRequest(comms.Message):
         return MESSAGE_ID
 
 
-_STRUCT = struct.Struct("!BBBBHHxx")
+_STRUCT = struct.Struct("!BBBBHH")
+
+# Some versions of the interface don't include padding bytes, so it is not
+# included in _STRUCT for parsing.
+_PADDING_BYTES = b"\x00\x00"
+_PADDING_BYTES_SIZE = len(_PADDING_BYTES)
 
 _BYTE4_UNUSED_BITS = 0b11000000  # From the example messages and as per real messages
 
@@ -142,7 +147,7 @@ class AcStatusEncoder(
     def repeat_size(self, message: AcStatusMessage | AcStatusRequest) -> int:
         if isinstance(message, AcStatusRequest):
             return 0
-        return _STRUCT.size
+        return _STRUCT.size + _PADDING_BYTES_SIZE
 
     @override
     def encode(
@@ -165,7 +170,7 @@ class AcStatusEncoder(
             encoded_bypass_active = self._encode_bypass_active(ac.bypass_active)
             encoded_spill_active = self._encode_spill_active(ac.spill_active)
             encoded_timer_status = self._encode_timer_status(ac.timer_set)
-            encoded_temperature = utils.encode_temperature(ac.temperature)
+            encoded_temperature = self._encode_temperature(ac.temperature)
 
             b1 = encoded_ac_number + encoded_power_state
             b2 = encoded_mode + encoded_fan_speed
@@ -182,6 +187,7 @@ class AcStatusEncoder(
                     b1, b2, encoded_set_point, b4, encoded_temperature, ac.error_code
                 )
             )
+            buffer.extend(_PADDING_BYTES)
 
         return buffer
 
@@ -209,6 +215,9 @@ class AcStatusEncoder(
     def _encode_timer_status(self, timer_set: bool) -> int:  # noqa: FBT001
         return encoding.bool_to_bit(timer_set, 0)
 
+    def _encode_temperature(self, temperature: float) -> int:
+        return utils.encode_temperature(temperature) & 0x07FF
+
 
 class AcStatusDecoder(
     comms.MessageDecoder[
@@ -235,12 +244,16 @@ class AcStatusDecoder(
             )
 
         # Otherwise decode AC Status information for each AC:
-        if header.repeat_length != _STRUCT.size and not self._mismatch_logged:
+        if (
+            header.repeat_length != _STRUCT.size
+            and header.repeat_length != (_STRUCT.size + _PADDING_BYTES_SIZE)
+            and not self._mismatch_logged
+        ):
             _LOGGER.info(
                 "Header repeat_length (%d) != AC Status Data size (%d). "
                 "Ignoring extra bytes",
                 header.repeat_length,
-                _STRUCT.size,
+                _STRUCT.size + _PADDING_BYTES_SIZE,
             )
             self._mismatch_logged = True
 
@@ -265,7 +278,7 @@ class AcStatusDecoder(
                     spill_active=self._decode_spill(b4),
                     timer_set=self._decode_timer_status(b4),
                     set_point=utils.decode_set_point(set_point_raw),
-                    temperature=utils.decode_temperature(temp_raw),
+                    temperature=self._decode_temperature(temp_raw),
                     error_code=error_code,
                 )
             )
@@ -304,3 +317,6 @@ class AcStatusDecoder(
 
     def _decode_timer_status(self, byte4: int) -> bool:
         return encoding.bit_to_bool(byte4, 0)
+
+    def _decode_temperature(self, temp_raw: int) -> float:
+        return utils.decode_temperature(temp_raw & 0x07FF)

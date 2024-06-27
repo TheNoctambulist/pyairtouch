@@ -360,3 +360,207 @@ class TestAcStatusEncoderDecoder:
 
         decode_result.assert_complete()
         assert message == decode_result.message
+
+
+@pytest.mark.parametrize(
+    argnames=["repeat_length", "message", "message_buffer"],
+    argvalues=[
+        #
+        # Test decoding with various repeat lengths that for different protocol
+        # versions.
+        #
+        (
+            8,
+            AcStatusMessage(
+                ac_status=[
+                    AcStatusData(
+                        ac_number=0,
+                        power_state=AcPowerState.ON,
+                        mode=AcMode.HEAT,
+                        fan_speed=AcFanSpeed.LOW,
+                        turbo_active=False,
+                        bypass_active=False,
+                        spill_active=False,
+                        timer_set=False,
+                        set_point=22.0,
+                        temperature=23.0,
+                        error_code=0,
+                    ),
+                    AcStatusData(
+                        ac_number=1,
+                        power_state=AcPowerState.OFF,
+                        mode=AcMode.COOL,
+                        fan_speed=AcFanSpeed.LOW,
+                        turbo_active=False,
+                        bypass_active=False,
+                        spill_active=False,
+                        timer_set=False,
+                        set_point=20.0,
+                        temperature=24.0,
+                        error_code=0,
+                    ),
+                ]
+            ),
+            bytes(
+                (
+                    # AC 0
+                    0x10,
+                    0x12,
+                    0x78,
+                    0xC0,
+                    0x02,
+                    0xDA,
+                    0x00,
+                    0x00,
+                    # AC 1
+                    0x01,
+                    0x42,
+                    0x64,
+                    0xC0,
+                    0x02,
+                    0xE4,
+                    0x00,
+                    0x00,
+                )
+            ),
+        ),
+        (
+            10,
+            AcStatusMessage(
+                ac_status=[
+                    AcStatusData(
+                        ac_number=0,
+                        power_state=AcPowerState.ON,
+                        mode=AcMode.HEAT,
+                        fan_speed=AcFanSpeed.LOW,
+                        turbo_active=False,
+                        bypass_active=False,
+                        spill_active=False,
+                        timer_set=False,
+                        set_point=22.0,
+                        temperature=23.0,
+                        error_code=0,
+                    ),
+                    AcStatusData(
+                        ac_number=1,
+                        power_state=AcPowerState.OFF,
+                        mode=AcMode.COOL,
+                        fan_speed=AcFanSpeed.LOW,
+                        turbo_active=False,
+                        bypass_active=False,
+                        spill_active=False,
+                        timer_set=False,
+                        set_point=20.0,
+                        temperature=24.0,
+                        error_code=0,
+                    ),
+                ]
+            ),
+            bytes(
+                (
+                    # AC 0
+                    0x10,
+                    0x12,
+                    0x78,
+                    0xC0,
+                    0x02,
+                    0xDA,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    # AC 1
+                    0x01,
+                    0x42,
+                    0x64,
+                    0xC0,
+                    0x02,
+                    0xE4,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                )
+            ),
+        ),
+        (
+            14,
+            AcStatusMessage(
+                ac_status=[
+                    AcStatusData(
+                        ac_number=0,
+                        power_state=AcPowerState.ON,
+                        mode=AcMode.HEAT,
+                        fan_speed=AcFanSpeed.LOW,
+                        turbo_active=False,
+                        bypass_active=False,
+                        spill_active=False,
+                        timer_set=False,
+                        set_point=22.0,
+                        temperature=23.0,
+                        error_code=0,
+                    ),
+                    AcStatusData(
+                        ac_number=1,
+                        power_state=AcPowerState.OFF,
+                        mode=AcMode.COOL,
+                        fan_speed=AcFanSpeed.LOW,
+                        turbo_active=False,
+                        bypass_active=False,
+                        spill_active=False,
+                        timer_set=False,
+                        set_point=20.0,
+                        temperature=24.0,
+                        error_code=0,
+                    ),
+                ]
+            ),
+            bytes(
+                (
+                    # AC 0
+                    0x10,
+                    0x12,
+                    0x78,
+                    0xC0,
+                    0x02,
+                    0xDA,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    # AC 1
+                    0x01,
+                    0x42,
+                    0x64,
+                    0xC0,
+                    0x02,
+                    0xE4,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                )
+            ),
+        ),
+    ],
+)
+class TestAcStatusDecoderWithPadding:
+    def test_decoder(
+        self, repeat_length: int, message: AcStatusMessage, message_buffer: bytes
+    ) -> None:
+        decoder = AcStatusDecoder()
+        header = generate_header(message)
+        header.repeat_length = repeat_length
+
+        decode_result = decoder.decode(message_buffer, header)
+
+        decode_result.assert_complete()
+        assert message == decode_result.message
