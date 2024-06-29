@@ -244,6 +244,12 @@ class AcStatusDecoder(
             )
 
         # Otherwise decode AC Status information for each AC:
+        if header.repeat_length < _STRUCT.size:
+            raise comms.DecodeError(
+                f"Header repeat length ({header.repeat_length} < "
+                f"AC Status Data size ({_STRUCT.size}))"
+            )
+
         if (
             header.repeat_length != _STRUCT.size
             and header.repeat_length != (_STRUCT.size + _PADDING_BYTES_SIZE)

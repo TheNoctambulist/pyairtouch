@@ -235,6 +235,12 @@ class ZoneStatusDecoder(
             )
 
         # Otherwise decode Zone Status information for each zone:
+        if header.repeat_length < _STRUCT.size:
+            raise comms.DecodeError(
+                f"Header repeat length ({header.repeat_length} < "
+                f"Zone Status Data size ({_STRUCT.size}))"
+            )
+
         if header.repeat_length != _STRUCT.size and not self._mismatch_logged:
             _LOGGER.info(
                 "Header repeat_length (%d) != Zone Status Data size (%d). "
