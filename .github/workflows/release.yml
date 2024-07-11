@@ -29,8 +29,7 @@ jobs:
       - uses: pdm-project/setup-pdm@v3
       - name: Publish
         run: pdm publish
-      - uses: ncipollo/release-action@v1
+      - uses: ghalactic/github-release-from-tag@v5
         with:
-          name: "Release ${{ github.REF_NAME }}"
-          draft: true
-          artifacts: "dist/*"
+          assets: |
+           - path: "dist/*"
