@@ -14,21 +14,18 @@ jobs:
         python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Set up PDM
+        uses: pdm-project/setup-pdm@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Cache virtualenv
-        uses: actions/cache@v3
+          cache: true
+      - name: Cache mypy
+        uses: actions/cache@v4
         with:
-          path: |
-            .venv
-            .mypy_cache
+          path: ".mypy_cache"
           key: ${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pdm.lock') }}
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install pdm
           pdm sync
       - name: Test with pytest
         run: |

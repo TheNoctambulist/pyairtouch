@@ -26,7 +26,7 @@ jobs:
           # Strip the "v" prefix
           version=${version#v}
           sed -i "s/\"0.0.0\"/\"${version}\"/" pyproject.toml
-      - uses: pdm-project/setup-pdm@v3
+      - uses: pdm-project/setup-pdm@v4
       - name: Publish
         run: pdm publish
       - uses: ghalactic/github-release-from-tag@v5
