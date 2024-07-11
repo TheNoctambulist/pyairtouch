@@ -1,4 +1,5 @@
 """Implementation of the API interfaces for the AirTouch 5."""
+
 import asyncio
 import contextlib
 import logging
@@ -759,7 +760,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
 
     async def _message_received(
         self,
-        _: pyairtouch.at5.comms.hdr.At5Header,
+        header: pyairtouch.at5.comms.hdr.At5Header,
         message: pyairtouch.comms.Message,
     ) -> None:
         # Process messages according to the current state.
@@ -784,6 +785,19 @@ class AirTouch5(pyairtouch.api.AirTouch):
             ):
                 self._process_zone_names_message(zone_names)
                 # Move to the next state
+                self._state = _AirTouchState.INIT_AC_ABILITY
+                ability_request = ExtendedMessage(AcAbilityRequest(ac_number="ALL"))
+                await self._socket.send(
+                    message=ability_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
+
+            case ExtendedMessage(ZoneNamesRequest()) if (
+                header.to_address == pyairtouch.at5.comms.hdr.ADDRESS_CLIENT
+                and self._state == _AirTouchState.INIT_ZONE_NAMES
+            ):
+                # This response may be received for AirTouch systems with no
+                # zones configured. Refer to docs/design.md.
                 self._state = _AirTouchState.INIT_AC_ABILITY
                 ability_request = ExtendedMessage(AcAbilityRequest(ac_number="ALL"))
                 await self._socket.send(
@@ -824,6 +838,16 @@ class AirTouch5(pyairtouch.api.AirTouch):
             ) if self._state == _AirTouchState.INIT_ZONE_STATUS:
                 await self._process_zone_status_message(zone_statuses)
                 # Move to the next state
+                self._state = _AirTouchState.CONNECTED
+                await self._heartbeat_manager.start()
+                self._initialised_event.set()
+
+            case ControlStatusMessage(zone_status_msg.ZoneStatusRequest()) if (
+                header.to_address == pyairtouch.at5.comms.hdr.ADDRESS_CLIENT
+                and self._state == _AirTouchState.INIT_ZONE_STATUS
+            ):
+                # This response may be received for AirTouch systems with no
+                # zones configured. Refer to docs/design.md.
                 self._state = _AirTouchState.CONNECTED
                 await self._heartbeat_manager.start()
                 self._initialised_event.set()

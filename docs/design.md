@@ -71,3 +71,28 @@ When no group status messages have been received for 5 minutes, a request is sen
 Typical update intervals when house temperatures are stable and the AC is not running can be much longer than 5 minutes.
 However, 5 minutes has been selected to ensure smooth temperature profiles in all scenarios.
 If the Group Status received in response to the request is identical to the current status it will be ignored, so the only consequence of sending more frequent queries is increased network traffic.
+
+## Support for systems without zones
+### Context
+Problem reports have highlighted that it is possible to have AirTouch installations with ACs, but no zones.
+When initialising the interface for an AirTouch 5 system with no zones, the AirTouch 5 console unexpectedly responds to a Zone Names Request (0x1FFF13) with a Zone Names Request (0x1FFF13) instead of a Zone Names Message (0x1FFF12).
+
+A recorded message sequence was:
+```
+# Zone Names Request from Client
+Message: ExtendedMessage(sub_message=ZoneNamesRequest(zone_number='ALL'))
+Raw:     55 55 55 ab 00 00 00 0e 00 0e 55 55 55 aa 90 b0 31 1f 00 02 ff 13 b2 c8
+
+# Response from AirTouch
+Raw:     55 55 55 ab 00 00 00 0e 00 0e 55 55 55 aa b0 90 31 1f 00 02 ff 13 68 eb
+Message: ExtendedMessage(sub_message=ZoneNamesRequest(zone_number='ALL'))
+```
+
+While the recorded message only included the Zone Names Request, it is expected that a similar response will be observed for the Zone Status Request.
+
+### Design
+A simple way to check for these invalid request messages and interpret them as empty responses is to check the address fields of the top-level header.
+All messages sent from the AirTouch console to the API client set the "To Address" to 0xB0.
+
+The architecture of the Zone Names and Zone Status decoders and the fact that they are nested messages means the address fields are not available when decoding those messages.
+Therefore, the special case handling for systems with zero zones is implemented in the top-level API packages during the initialisation sequence.
