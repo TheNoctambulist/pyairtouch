@@ -876,9 +876,14 @@ class AirTouch5(pyairtouch.api.AirTouch):
             )
 
     def _process_ac_ability_message(self, ac_abilities: Sequence[AcAbility]) -> None:
+        # With multiple ac's, the start/count values might look like:
+        # AC1: start_zone:0, zone_count: 3
+        # AC2: start_zone:3, zone_count: 2
+        # AC3: start_zone:5, zone_count: 3
         for ac in ac_abilities:
+            _LOGGER.debug("_process_ac_ability_message %s", ac)
             ac_zones = [
-                self._zones[zone_id] for zone_id in range(ac.start_zone, ac.zone_count)
+                self._zones[zone_id] for zone_id in range(ac.start_zone, ac.start_zone + ac.zone_count)
             ]
             self._air_conditioners[ac.ac_number] = At5AirConditioner(
                 ac_number=ac.ac_number,
