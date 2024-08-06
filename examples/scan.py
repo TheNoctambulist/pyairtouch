@@ -48,14 +48,18 @@ async def monitor_airtouch(airtouch: pyairtouch.AirTouch, duration: int) -> None
 async def main() -> None:
     # Automatically discover AirTouch devices on the network.
     print("About to attempt to discover AirTouch devices")
-#    discovered_airtouches = await pyairtouch.discover()
-    discovered_airtouches = []
-    if not discovered_airtouches:
-        print("No AirTouch devices discovered")
+    should_discover = True
+    if should_discover:
+        discovered_airtouches = await pyairtouch.discover()
+        if not discovered_airtouches:
+            print("No AirTouch devices discovered")
+        else:
+            print(f"Discovered: {len(discovered_airtouches)} AirTouch devices")
+            for airtouch in discovered_airtouches:
+                print(f"  {airtouch.name} ({airtouch.host})")
     else:
-        print(f"Discovered: {len(discovered_airtouches)} AirTouch devices")
-        for airtouch in discovered_airtouches:
-            print(f"  {airtouch.name} ({airtouch.host})")
+        print("Skipping AirTouch discovery")
+        discovered_airtouches = []
 
     args = sys.argv[1:]
     hostOrName = None
@@ -77,6 +81,9 @@ async def main() -> None:
                     print(f"Using specified AirTouch (that was not automatically discovered): {airtouch.name} ({airtouch.host})")
                 else:
                     print(f"Using first specified AirTouch (out of {len(specified_airtouches)} possibilities): {airtouch.name} ({airtouch.host})")
+            else:
+                print(f"Unable to find specified AirTouch {hostOrName}")
+
 
 
     if airtouch is None:
@@ -88,7 +95,7 @@ async def main() -> None:
             print(f"Using the first discovered AirTouch (of {len(discovered_airtouches)}): {airtouch.name} ({airtouch.host})")
     
     if airtouch is not None:
-        await monitor_airtouch(airtouch, 0)
+        await monitor_airtouch(airtouch, 300)
     else:
         print(f"Unable to connect to AirTouch")
 
