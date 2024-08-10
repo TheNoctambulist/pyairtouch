@@ -1,0 +1,110 @@
+"""An example demonstrating usage of the pyairtouch API.
+
+Demonstrates discovery of AirTouch systems and monitoring of their status.
+
+To run the example use the command `pdm run example`."""
+
+import argparse
+import asyncio
+import contextlib
+import sys
+
+import pyairtouch
+
+
+def msg(msg: str) -> None:
+    print(msg, file=sys.stderr)
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Briefly monitors discovered AirTouch devices."
+    )
+    p.add_argument(
+        "--host",
+        dest="airtouch_host",
+        help="Connect to a specified AirTouch console by host name. "
+        "If not specified, automatic discovery will be used.",
+        type=str,
+    )
+    p.add_argument(
+        "--duration",
+        help="Runtime for the example program in seconds. "
+        "Defaults to 300 seconds (5 minutes)",
+        type=float,
+        default=300.0,
+        required=False,
+    )
+    return p.parse_args()
+
+
+def _airtouch_id(airtouch: pyairtouch.AirTouch) -> str:
+    return f"{airtouch.name} ({airtouch.host})"
+
+
+async def _monitor_airtouch(airtouch: pyairtouch.AirTouch, duration: float) -> None:
+    """Monitor an AirTouch for a fixed duration."""
+    success = await airtouch.init()
+    if not success:
+        msg(f"{_airtouch_id(airtouch)} initialisation failed")
+        return
+
+    msg(f"{_airtouch_id(airtouch)} initialised. Monitoring for {duration} seconds")
+
+    async def _on_ac_status_updated(ac_id: int) -> None:
+        msg(f"{_airtouch_id(airtouch)} AC {ac_id} status updated")
+        aircon = airtouch.air_conditioners[ac_id]
+        msg(
+            f"  AC Status  : {aircon.power_state.name} {aircon.mode.name}  "
+            f"temp={aircon.current_temperature:.1f} "
+            f"set_point={aircon.target_temperature:.1f}"
+        )
+
+        for zone in aircon.zones:
+            msg(
+                f"  Zone Status: {zone.name:10} {zone.power_state.name:3}  "
+                f"temp={zone.current_temperature:.1f} "
+                f"set_point={zone.target_temperature:.1f} "
+                f"damper={zone.current_damper_percentage}"
+            )
+        msg("")  # Blank line to separate from subsequent logs.
+
+    # Subscribe to AC status updates:
+    for aircon in airtouch.air_conditioners:
+        aircon.subscribe(_on_ac_status_updated)
+
+        # Print initial status
+        await _on_ac_status_updated(aircon.ac_id)
+
+    # Run the monitor for the specified duration
+    await asyncio.sleep(duration)
+
+    await airtouch.shutdown()
+
+
+async def main(args: argparse.Namespace) -> None:
+    # Automatically discover AirTouch devices on the network.
+    if args.airtouch_host:
+        print(f"Searching for AirTouch at {args.airtouch_host}")
+    else:
+        print("Searching for all AirTouch systems on the network")
+
+    discovered_airtouches = await pyairtouch.discover(args.airtouch_host)
+    if not discovered_airtouches:
+        print("No AirTouch discovered")
+        return
+
+    print(f"Discovered {len(discovered_airtouches)} AirTouch systems:")
+    for airtouch in discovered_airtouches:
+        print(f"  {airtouch.name} ({airtouch.host})")
+
+    # Monitor all discovered AirTouch systems
+    async with asyncio.TaskGroup() as tg:
+        for airtouch in discovered_airtouches:
+            tg.create_task(_monitor_airtouch(airtouch, args.duration))
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    with contextlib.suppress(KeyboardInterrupt):
+        asyncio.run(main(args))
