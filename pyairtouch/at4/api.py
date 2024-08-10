@@ -855,7 +855,9 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 # group_count here.
                 ac_zones = [
                     self._zones[zone_id]
-                    for zone_id in range(ac.start_group, ac.group_count)
+                    for zone_id in range(
+                        ac.start_group, ac.start_group + ac.group_count
+                    )
                 ]
 
             self._air_conditioners[ac.ac_number] = At4AirConditioner(
