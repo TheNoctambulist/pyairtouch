@@ -558,7 +558,7 @@ This port number is statically defined within the interface specification.
 class AirTouch4(pyairtouch.api.AirTouch):
     """The main entrypoint for the AirTouch 4 API."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
         airtouch_id: str,
@@ -914,7 +914,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
                         await self._group_status_received_event.wait()
                         timeout.reschedule(self._loop.time() + _GROUP_STATUS_TIMEOUT)
                         self._group_status_received_event.clear()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 _LOGGER.debug("Group status timed out, requesting update")
                 if self._socket.is_connected:
                     await self._socket.send(

@@ -4,7 +4,6 @@ Defines the interfaces for interfacing with the AirTouch including common
 encoding/decoding utilities shared by multiple AirTouch versions.
 """
 
-
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Generic, Protocol, TypeVar
@@ -250,9 +249,9 @@ class MessageRegistry(Generic[Hdr]):
         self.header_decoder = header_decoder
         self.checksum_calculator = checksum_calculator
 
-        self._unsupported_decoder: UnsupportedMessageDecoder[
-            Hdr
-        ] = UnsupportedMessageDecoder()
+        self._unsupported_decoder: UnsupportedMessageDecoder[Hdr] = (
+            UnsupportedMessageDecoder()
+        )
 
         self._encoder_map: dict[int, MessageEncoder[Hdr, Any]] = {}
         self._decoder_map: dict[int, MessageDecoder[Hdr, Message]] = {}

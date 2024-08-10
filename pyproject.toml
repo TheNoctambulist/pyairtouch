@@ -26,7 +26,8 @@ Issues = "https://github.com/thenoctambulist/pyairtouch/issues"
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
-[tool.ruff]
+
+[tool.ruff.lint]
 select = ["ALL"] # We'll disable specific rules where appropriate.
 
 ignore = [

@@ -589,7 +589,7 @@ This port number is statically defined within the interface specification.
 class AirTouch5(pyairtouch.api.AirTouch):
     """The main entrypoint for the AirTouch 5 API."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
         airtouch_id: str,
@@ -758,7 +758,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
             )
 
-    async def _message_received(
+    async def _message_received(  # noqa: C901
         self,
         header: pyairtouch.at5.comms.hdr.At5Header,
         message: pyairtouch.comms.Message,

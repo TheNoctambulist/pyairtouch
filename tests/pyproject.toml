@@ -2,6 +2,7 @@
 # Extend the base project configuration
 extend = "../pyproject.toml"
 
+[tool.ruff.lint]
 ignore = [
     "D",    # Ignore docstrings for tests
     "S101", # Allow assert statements

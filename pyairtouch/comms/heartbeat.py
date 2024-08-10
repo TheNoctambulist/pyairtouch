@@ -153,7 +153,7 @@ class HeartbeatManager(Generic[comms.Hdr]):
                         await self._response_received.wait()
                         timeout.reschedule(self._loop.time() + self._config.timeout)
                         self._response_received.clear()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 if self._socket.is_connected:
                     _LOGGER.debug("Heartbeat timed out, resetting connection")
                     await self._socket.reset_connection()
