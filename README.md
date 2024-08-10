@@ -68,6 +68,8 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+A more detailed example can be found in [examples/example.py](examples/example.py). The example can be run using the `pdm run example` command.
+
 ## Say Thank You
 If you would like to make a donation as appreciation of my work, please use one of the links below:
 
