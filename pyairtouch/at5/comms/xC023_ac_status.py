@@ -63,7 +63,12 @@ class AcFanSpeed(enum.Enum):
     HIGH = 4
     POWERFUL = 5
     TURBO = 6
-    INTELLIGENT_AUTO = 9  # 9 to 14
+    INTELLIGENT_AUTO_QUIET = 9
+    INTELLIGENT_AUTO_LOW = 10
+    INTELLIGENT_AUTO_MEDIUM = 11
+    INTELLIGENT_AUTO_HIGH = 12
+    INTELLIGENT_AUTO_POWERFUL = 13
+    INTELLIGENT_AUTO_TURBO = 14
 
 
 @dataclass
@@ -306,11 +311,8 @@ class AcStatusDecoder(
         return AcMode((byte2 & 0xF0) >> 4)
 
     def _decode_fan_speed(self, byte2: int) -> AcFanSpeed:
-        fan_speed_int = byte2 & 0x0F
-        # Values 9 to 14 all translate to Intelligent Auto
-        if fan_speed_int in range(0x09, 0x0F):
-            return AcFanSpeed.INTELLIGENT_AUTO
-        return AcFanSpeed(fan_speed_int)
+        fan_speed_raw = byte2 & 0x0F
+        return AcFanSpeed(fan_speed_raw)
 
     def _decode_turbo(self, byte4: int) -> bool:
         return encoding.bit_to_bool(byte4, 3)

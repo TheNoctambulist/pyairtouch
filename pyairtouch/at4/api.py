@@ -430,7 +430,15 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
 
     @override
     @property
-    def fan_speed(self) -> pyairtouch.api.AcFanSpeed:
+    def selected_fan_speed(self) -> pyairtouch.api.AcFanSpeed:
+        return _AC_FAN_SPEED_MAPPING[self._ac_status.fan_speed]
+
+    @override
+    @property
+    def active_fan_speed(self) -> pyairtouch.api.AcFanSpeed:
+        # AirTouch 4 doesn't support Intelligent Auto or any other way to
+        # identify the underlying fan speed in Auto fan speed modes, so we just
+        # return the currently selected fan speed.
         return _AC_FAN_SPEED_MAPPING[self._ac_status.fan_speed]
 
     @override

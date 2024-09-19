@@ -298,8 +298,17 @@ class AirConditioner(Protocol):
         """Current mode of the air-conditioner."""
 
     @property
-    def fan_speed(self) -> AcFanSpeed:
-        """Current fan speed of the air-conditioner."""
+    def selected_fan_speed(self) -> AcFanSpeed:
+        """Current selected fan speed of the air-conditioner."""
+
+    @property
+    def active_fan_speed(self) -> AcFanSpeed:
+        """Current active fan speed of the air-conditioner.
+
+        In most cases this will match the selected fan speed, but when
+        Intelligent Auto is selected this property can identify which underlying
+        fan speed has been automatically selected.
+        """
 
     @property
     def current_temperature(self) -> float:

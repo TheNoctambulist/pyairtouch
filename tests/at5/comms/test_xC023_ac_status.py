@@ -209,7 +209,7 @@ def generate_header(
                         ac_number=0,
                         power_state=AcPowerState.OFF,
                         mode=AcMode.AUTO,
-                        fan_speed=AcFanSpeed.INTELLIGENT_AUTO,
+                        fan_speed=AcFanSpeed.INTELLIGENT_AUTO_POWERFUL,
                         turbo_active=False,
                         bypass_active=False,
                         spill_active=False,
@@ -220,7 +220,7 @@ def generate_header(
                     )
                 ]
             ),
-            bytes((0x00, 0b00001001, 23, 0xC0, 0x01, 0xF4, 0x00, 0x00, 0x00, 0x00)),
+            bytes((0x00, 0b00001101, 23, 0xC0, 0x01, 0xF4, 0x00, 0x00, 0x00, 0x00)),
         ),
         #
         # Tests for Turbo
