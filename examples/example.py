@@ -55,7 +55,8 @@ async def _monitor_airtouch(airtouch: pyairtouch.AirTouch, duration: float) -> N
         msg(f"{_airtouch_id(airtouch)} AC {ac_id} status updated")
         aircon = airtouch.air_conditioners[ac_id]
         msg(
-            f"  AC Status  : {aircon.power_state.name} {aircon.mode.name}  "
+            f"  AC Status  : {aircon.power_state.name} "
+            f"{aircon.active_mode.name} {aircon.active_fan_speed.name} "
             f"temp={aircon.current_temperature:.1f} "
             f"set_point={aircon.target_temperature:.1f}"
         )

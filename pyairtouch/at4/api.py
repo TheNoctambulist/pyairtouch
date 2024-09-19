@@ -259,14 +259,23 @@ _API_POWER_CONTROL_MAPPING = {
     pyairtouch.api.AcPowerControl.TURN_OFF: ac_ctrl_msg.AcPowerControl.TURN_OFF,
     pyairtouch.api.AcPowerControl.TURN_ON: ac_ctrl_msg.AcPowerControl.TURN_ON,
 }
-_AC_MODE_MAPPING = {
+_AC_SELECTED_MODE_MAPPING = {
     ac_status_msg.AcMode.AUTO: pyairtouch.api.AcMode.AUTO,
     ac_status_msg.AcMode.HEAT: pyairtouch.api.AcMode.HEAT,
     ac_status_msg.AcMode.DRY: pyairtouch.api.AcMode.DRY,
     ac_status_msg.AcMode.FAN: pyairtouch.api.AcMode.FAN,
     ac_status_msg.AcMode.COOL: pyairtouch.api.AcMode.COOL,
-    ac_status_msg.AcMode.AUTO_HEAT: pyairtouch.api.AcMode.AUTO_HEAT,
-    ac_status_msg.AcMode.AUTO_COOL: pyairtouch.api.AcMode.AUTO_COOL,
+    ac_status_msg.AcMode.AUTO_HEAT: pyairtouch.api.AcMode.AUTO,
+    ac_status_msg.AcMode.AUTO_COOL: pyairtouch.api.AcMode.AUTO,
+}
+_AC_ACTIVE_MODE_MAPPING = {
+    ac_status_msg.AcMode.AUTO: pyairtouch.api.AcMode.AUTO,
+    ac_status_msg.AcMode.HEAT: pyairtouch.api.AcMode.HEAT,
+    ac_status_msg.AcMode.DRY: pyairtouch.api.AcMode.DRY,
+    ac_status_msg.AcMode.FAN: pyairtouch.api.AcMode.FAN,
+    ac_status_msg.AcMode.COOL: pyairtouch.api.AcMode.COOL,
+    ac_status_msg.AcMode.AUTO_HEAT: pyairtouch.api.AcMode.HEAT,
+    ac_status_msg.AcMode.AUTO_COOL: pyairtouch.api.AcMode.COOL,
 }
 _API_MODE_CONTROL_MAPPING = {
     pyairtouch.api.AcMode.AUTO: ac_ctrl_msg.AcModeControl.AUTO,
@@ -425,8 +434,13 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
 
     @override
     @property
-    def mode(self) -> pyairtouch.api.AcMode:
-        return _AC_MODE_MAPPING[self._ac_status.mode]
+    def selected_mode(self) -> pyairtouch.api.AcMode:
+        return _AC_SELECTED_MODE_MAPPING[self._ac_status.mode]
+
+    @override
+    @property
+    def active_mode(self) -> pyairtouch.api.AcMode:
+        return _AC_ACTIVE_MODE_MAPPING[self._ac_status.mode]
 
     @override
     @property

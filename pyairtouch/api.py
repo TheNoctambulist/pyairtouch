@@ -63,12 +63,6 @@ class AcMode(Enum):
     FAN = auto()
     COOL = auto()
 
-    AUTO_HEAT = auto()
-    """Indicates that the AC is in AUTO mode and heating."""
-
-    AUTO_COOL = auto()
-    """Indicates that the AC is in AUTO mode and cooling."""
-
 
 class AcFanSpeed(Enum):
     """The fan speeds of an Air-Conditioner."""
@@ -294,8 +288,17 @@ class AirConditioner(Protocol):
         """Current power state of the air-conditioner."""
 
     @property
-    def mode(self) -> AcMode:
-        """Current mode of the air-conditioner."""
+    def selected_mode(self) -> AcMode:
+        """Current selected mode of the air-conditioner."""
+
+    @property
+    def active_mode(self) -> AcMode:
+        """Current active mode of the air-conditioner.
+
+        In most cases this will match the selected mode, but when Auto mode is
+        selected this propeerty can identify whether the air-conditioner is
+        currently heating or cooling.
+        """
 
     @property
     def selected_fan_speed(self) -> AcFanSpeed:
