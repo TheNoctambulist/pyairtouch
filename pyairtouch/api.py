@@ -4,6 +4,7 @@ The data model is designed to be common across the different supported AirTouch
 versions.
 """
 
+import datetime
 from collections.abc import Awaitable, Callable, Sequence
 from enum import Enum, auto
 from typing import Any, Optional, Protocol
@@ -13,6 +14,7 @@ __all__ = [
     # API Enumerations
     "AirTouchModel",
     "AcPowerState", "AcPowerControl", "AcMode", "AcFanSpeed", "AcSpillState",
+    "AcTimerType",
     "ZonePowerState", "ZoneControlMethod", "SensorBatteryStatus",
 
     # API Interfaces
@@ -93,6 +95,13 @@ class AcSpillState(Enum):
     NONE = auto()
     SPILL = auto()
     BYPASS = auto()
+
+
+class AcTimerType(Enum):
+    """The type of an air-conditioner quick timer."""
+
+    OFF_TIMER = auto()
+    ON_TIMER = auto()
 
 
 class ZonePowerState(Enum):
@@ -351,6 +360,16 @@ class AirConditioner(Protocol):
     def zones(self) -> Sequence[Zone]:
         """The set of AirTouch zones associated with this Air-Conditioner."""
 
+    def next_quick_timer(self, timer_type: AcTimerType) -> Optional[datetime.time]:
+        """The next activation time for a quick timer.
+
+        Returns:
+            The next activation time in the AirTouch console's local time, or
+            None if the timer is not active. The time object is "naive" and has
+            no embedded time-zone information. It is up to the user to apply
+            appropriate time-zone offsets.
+        """
+
     async def set_power(self, power_control: AcPowerControl) -> None:
         """Set a new power state for the air-conditioner.
 
@@ -396,6 +415,26 @@ class AirConditioner(Protocol):
                 The requested temperature will be rounded to the
                 `target_temperature_resolution` and bounded by
                 `min_target_temperature` and `max_target_temperature`.
+        """
+
+    async def set_quick_timer(
+        self, timer_type: AcTimerType, value: datetime.time | datetime.timedelta
+    ) -> None:
+        """Set or update a quick timer for the air-conditioner.
+
+        Args:
+            timer_type: Whether to set the On or Off timer.
+            value: Either the duration or time of day for the timer to next activate.
+                The value will be truncated to a one minute resolution.
+        """
+
+    async def clear_quick_timer(self, timer_type: AcTimerType) -> None:
+        """Clear a quick timer for the air-conditioner.
+
+        Has no effect if the timer is not set.
+
+        Args:
+            timer_type: Whether to clear the On or Off timer.
         """
 
     def subscribe(self, subscriber: UpdateSubscriber) -> None:

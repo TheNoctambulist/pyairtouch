@@ -25,6 +25,7 @@ from pyairtouch.api import (
     AcPowerControl,
     AcPowerState,
     AcSpillState,
+    AcTimerType,
     AirConditioner,
     AirTouch,
     AirTouchModel,
@@ -46,6 +47,7 @@ __all__ = [
     # API Enumerations
     "AirTouchModel",
     "AcPowerState", "AcPowerControl", "AcMode", "AcFanSpeed", "AcSpillState",
+    "AcTimerType",
     "ZonePowerState", "ZoneControlMethod", "SensorBatteryStatus",
 
     # API Interfaces

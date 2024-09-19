@@ -103,7 +103,7 @@ class ExtendedMessageEncoder(comms.MessageEncoder[At5Header, ExtendedMessage[Any
         return _SUB_HEADER_STRUCT.size + sub_message_encoder.size(message.sub_message)
 
     @override
-    def encode(self, _: At5Header, message: ExtendedMessage[comms.Msg]) -> bytes:
+    def encode(self, header: At5Header, message: ExtendedMessage[comms.Msg]) -> bytes:
         sub_message = message.sub_message
         sub_message_encoder = self._sub_message_encoder(message.sub_message)
 

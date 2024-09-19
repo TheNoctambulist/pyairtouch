@@ -17,11 +17,14 @@ from . import (
     x1FFF10_err_info,
     x1FFF11_ac_ability,
     x1FFF12_group_names,
+    x1FFF20_quick_timer,
     x1FFF30_console_ver,
     x2A_group_ctrl,
     x2B_group_status,
     x2C_ac_ctrl,
     x2D_ac_status,
+    x36_ac_timer_ctrl,
+    x37_ac_timer_status,
 )
 
 
@@ -71,6 +74,7 @@ _extended_encoder = x1F_ext.ExtendedMessageEncoder(
         x1FFF10_err_info.MESSAGE_ID: x1FFF10_err_info.AcErrorInformationEncoder(),
         x1FFF11_ac_ability.MESSAGE_ID: x1FFF11_ac_ability.AcAbilityEncoder(),
         x1FFF12_group_names.MESSAGE_ID: x1FFF12_group_names.GroupNamesEncoder(),
+        x1FFF20_quick_timer.MESSAGE_ID: x1FFF20_quick_timer.QuickTimerEncoder(),
         x1FFF30_console_ver.MESSAGE_ID: x1FFF30_console_ver.ConsoleVersionEncoder(),
     }
 )
@@ -79,6 +83,7 @@ _extended_decoder = x1F_ext.ExtendedMessageDecoder(
         x1FFF10_err_info.MESSAGE_ID: x1FFF10_err_info.AcErrorInformationDecoder(),
         x1FFF11_ac_ability.MESSAGE_ID: x1FFF11_ac_ability.AcAbilityDecoder(),
         x1FFF12_group_names.MESSAGE_ID: x1FFF12_group_names.GroupNamesDecoder(),
+        x1FFF20_quick_timer.MESSAGE_ID: x1FFF20_quick_timer.QuickTimerDecoder(),
         x1FFF30_console_ver.MESSAGE_ID: x1FFF30_console_ver.ConsoleVersionDecoder(),
     }
 )
@@ -111,4 +116,14 @@ INSTANCE.register(
     message_id=x2D_ac_status.MESSAGE_ID,
     encoder=x2D_ac_status.AcStatusEncoder(),
     decoder=x2D_ac_status.AcStatusDecoder(),
+)
+INSTANCE.register(
+    message_id=x36_ac_timer_ctrl.MESSAGE_ID,
+    encoder=x36_ac_timer_ctrl.AcTimerControlEncoder(),
+    decoder=x36_ac_timer_ctrl.AcTimerControlDecoder(),
+)
+INSTANCE.register(
+    message_id=x37_ac_timer_status.MESSAGE_ID,
+    encoder=x37_ac_timer_status.AcTimerStatusEncoder(),
+    decoder=x37_ac_timer_status.AcTimerStatusDecoder(),
 )

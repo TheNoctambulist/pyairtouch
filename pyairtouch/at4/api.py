@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import datetime
 import logging
 from collections.abc import Awaitable, Iterable, Mapping, Sequence
 from enum import Enum, auto
@@ -15,11 +16,14 @@ import pyairtouch.at4.comms.registry
 import pyairtouch.at4.comms.x1F_ext as extended_msg
 import pyairtouch.at4.comms.x1FFF11_ac_ability as ac_ability_msg
 import pyairtouch.at4.comms.x1FFF12_group_names as group_names_msg
+import pyairtouch.at4.comms.x1FFF20_quick_timer as quick_timer_msg
 import pyairtouch.at4.comms.x1FFF30_console_ver as console_ver_msg
 import pyairtouch.at4.comms.x2A_group_ctrl as group_ctrl_msg
 import pyairtouch.at4.comms.x2B_group_status as group_status_msg
 import pyairtouch.at4.comms.x2C_ac_ctrl as ac_ctrl_msg
 import pyairtouch.at4.comms.x2D_ac_status as ac_status_msg
+import pyairtouch.at4.comms.x36_ac_timer_ctrl as ac_timer_ctrl_msg
+import pyairtouch.at4.comms.x37_ac_timer_status as ac_timer_status_msg
 import pyairtouch.comms.heartbeat
 import pyairtouch.comms.socket
 from pyairtouch.api import AcMode
@@ -289,6 +293,10 @@ _API_FAN_SPEED_CONTROL_MAPPING = {
     pyairtouch.api.AcFanSpeed.POWERFUL: ac_ctrl_msg.AcFanSpeedControl.POWERFUL,
     pyairtouch.api.AcFanSpeed.TURBO: ac_ctrl_msg.AcFanSpeedControl.TURBO,
 }
+_API_TIMER_TYPE_MAPPING = {
+    pyairtouch.api.AcTimerType.OFF_TIMER: quick_timer_msg.TimerType.OFF_TIMER,
+    pyairtouch.api.AcTimerType.ON_TIMER: quick_timer_msg.TimerType.ON_TIMER,
+}
 
 
 class At4AirConditioner(pyairtouch.api.AirConditioner):
@@ -321,6 +329,11 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
             set_point=0,
             temperature=0.0,
             error_code=0,
+        )
+        self._ac_timer_status = ac_timer_status_msg.AcTimerStatusData(
+            ac_number=ac_number,
+            on_timer=ac_timer_status_msg.AcTimerState(disabled=True, hour=0, minute=0),
+            off_timer=ac_timer_status_msg.AcTimerState(disabled=True, hour=0, minute=0),
         )
 
         self._zones = zones
@@ -355,6 +368,24 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
         self._ac_status = ac_status
 
         if old_status != ac_status:
+            await _notify_subscribers(
+                [
+                    s(self.ac_id)
+                    for s in self._subscribers.union(self._subscribers_ac_state)
+                ]
+            )
+
+    async def update_ac_timer_status(
+        self, ac_timer_status: ac_timer_status_msg.AcTimerStatusData
+    ) -> None:
+        """Update the AC Timer Status with new data."""
+        if ac_timer_status.ac_number != self._ac_timer_status.ac_number:
+            raise ValueError("Invalid ac_number in updated status")
+
+        old_status = self._ac_timer_status
+        self._ac_timer_status = ac_timer_status
+
+        if old_status != ac_timer_status:
             await _notify_subscribers(
                 [
                     s(self.ac_id)
@@ -440,6 +471,20 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
         return self._zones
 
     @override
+    def next_quick_timer(
+        self, timer_type: pyairtouch.api.AcTimerType
+    ) -> Optional[datetime.time]:
+        match timer_type:
+            case pyairtouch.api.AcTimerType.OFF_TIMER:
+                timer_state = self._ac_timer_status.off_timer
+            case pyairtouch.api.AcTimerType.ON_TIMER:
+                timer_state = self._ac_timer_status.on_timer
+
+        if timer_state.disabled:
+            return None
+        return datetime.time(hour=timer_state.hour, minute=timer_state.minute)
+
+    @override
     async def set_power(self, power_control: pyairtouch.api.AcPowerControl) -> None:
         if power_control not in self._supported_power_controls:
             raise ValueError(f"power_control {power_control} is not supported")
@@ -481,6 +526,46 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
         await self._send_ac_control_message(
             set_point_control=ac_ctrl_msg.AcSetPointValue(clipped_temperature)
         )
+
+    @override
+    async def set_quick_timer(
+        self,
+        timer_type: pyairtouch.api.AcTimerType,
+        value: datetime.time | datetime.timedelta,
+    ) -> None:
+        match value:
+            case datetime.timedelta():
+                await self._socket.send(
+                    message=extended_msg.ExtendedMessage(
+                        sub_message=quick_timer_msg.QuickTimerMessage(
+                            ac_number=self.ac_id,
+                            timer_type=_API_TIMER_TYPE_MAPPING[timer_type],
+                            duration=value,
+                        )
+                    ),
+                    # Not strictly IDEMPOTENT since it is a duration, but given the
+                    # one minute resolution it is close enough to use that retry policy.
+                    retry_policy=pyairtouch.comms.socket.RETRY_IDEMPOTENT,
+                )
+            case datetime.time():
+                new_timer = ac_timer_ctrl_msg.AcTimerState(
+                    disabled=False,
+                    hour=value.hour,
+                    minute=value.minute,
+                )
+                await self._send_timer_control_message(timer_type, new_timer)
+
+            case _:
+                raise ValueError(f"value of type '{type(value)}' is unsupported")
+
+    @override
+    async def clear_quick_timer(self, timer_type: pyairtouch.api.AcTimerType) -> None:
+        new_timer = ac_timer_ctrl_msg.AcTimerState(
+            disabled=True,
+            hour=0,
+            minute=0,
+        )
+        await self._send_timer_control_message(timer_type, new_timer)
 
     @override
     def subscribe(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
@@ -527,6 +612,38 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
             retry_policy=retry_config,
         )
 
+    async def _send_timer_control_message(
+        self,
+        timer_type: pyairtouch.api.AcTimerType,
+        timer_state: ac_timer_ctrl_msg.AcTimerState,
+    ) -> None:
+        """Send a Timer Control message to update a single timer state."""
+        # Update only the specified timer and retain the other timer at its
+        # existing value.
+        on_timer = (
+            timer_state
+            if timer_type == pyairtouch.api.AcTimerType.ON_TIMER
+            else self._ac_timer_status.on_timer
+        )
+        off_timer = (
+            timer_state
+            if timer_type == pyairtouch.api.AcTimerType.OFF_TIMER
+            else self._ac_timer_status.off_timer
+        )
+
+        await self._socket.send(
+            message=ac_timer_ctrl_msg.AcTimerControlMessage(
+                ac_timer_status=[
+                    ac_timer_ctrl_msg.AcTimerControlData(
+                        ac_number=self.ac_id,
+                        on_timer=on_timer,
+                        off_timer=off_timer,
+                    )
+                ]
+            ),
+            retry_policy=pyairtouch.comms.socket.RETRY_IDEMPOTENT,
+        )
+
 
 class _AirTouchState(Enum):
     """Enum representing the state machine for the AirTouch interface."""
@@ -542,7 +659,9 @@ class _AirTouchState(Enum):
     INIT_AC_ABILITY = auto()
     # ↓ Receive AcAbilityMessage, send AcStatusRequest
     INIT_AC_STATUS = auto()
-    # ↓ ReceiveAcStatus, send GroupStatusRequest
+    # ↓ Receive AcStatus, send AcTimerStatusRequest
+    INIT_AC_TIMER_STATUS = auto()
+    # ↓ Receive AcTimerStatus, send GroupStatusRequest
     INIT_GROUP_STATUS = auto()
     # ↓ Receive GroupStatusMessage
     CONNECTED = auto()
@@ -740,7 +859,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
             )
 
-    async def _message_received(
+    async def _message_received(  # noqa: C901
         self, _: pyairtouch.at4.comms.hdr.At4Header, message: pyairtouch.comms.Message
     ) -> None:
         # Process messages according to the current state.
@@ -790,6 +909,17 @@ class AirTouch4(pyairtouch.api.AirTouch):
             ):
                 await self._process_ac_status_message(ac_statuses)
                 # Move to the next state
+                self._state = _AirTouchState.INIT_AC_TIMER_STATUS
+                await self._socket.send(
+                    message=ac_timer_status_msg.AcTimerStatusRequest(),
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
+
+            case ac_timer_status_msg.AcTimerStatusMessage(ac_timer_statuses) if (
+                self._state == _AirTouchState.INIT_AC_TIMER_STATUS
+            ):
+                await self._process_ac_timer_status_message(ac_timer_statuses)
+                # Move to the next state
                 self._state = _AirTouchState.INIT_GROUP_STATUS
                 await self._socket.send(
                     message=group_status_msg.GroupStatusRequest(),
@@ -812,6 +942,11 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 self._state == _AirTouchState.CONNECTED
             ):
                 await self._process_ac_status_message(ac_statues)
+
+            case ac_timer_status_msg.AcTimerStatusMessage(ac_timer_statuses) if (
+                self._state == _AirTouchState.CONNECTED
+            ):
+                await self._process_ac_timer_status_message(ac_timer_statuses)
 
             case group_status_msg.GroupStatusMessage(groups) if (
                 self._state == _AirTouchState.CONNECTED
@@ -876,6 +1011,18 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 await ac_instance.update_ac_status(ac_status)
             else:
                 _LOGGER.warning("Unknown AC in AC Status: %d", ac_status.ac_number)
+
+    async def _process_ac_timer_status_message(
+        self, ac_timer_statuses: Sequence[ac_timer_status_msg.AcTimerStatusData]
+    ) -> None:
+        for ac_timer_status in ac_timer_statuses:
+            ac_instance = self._air_conditioners.get(ac_timer_status.ac_number)
+            if ac_instance:
+                await ac_instance.update_ac_timer_status(ac_timer_status)
+            else:
+                # The AC Timer Status always includes an entry for four ACs even
+                # if there is only one. Ignore any unmatched ac_number values.
+                pass
 
     async def _process_group_status_message(
         self, groups: Sequence[group_status_msg.GroupStatusData]

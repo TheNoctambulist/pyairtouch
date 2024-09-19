@@ -16,11 +16,14 @@ from . import (
     x1FFF11_ac_ability,
     x1FFF13_zone_names,
     x1FFF30_console_ver,
+    x1FFF49_quick_timer,
     xC0_ctrl_status,
     xC020_zone_ctrl,
     xC021_zone_status,
     xC022_ac_ctrl,
     xC023_ac_status,
+    xC032_ac_timer_ctrl,
+    xC033_ac_timer_status,
 )
 
 
@@ -73,6 +76,7 @@ _extended_encoder = x1F_ext.ExtendedMessageEncoder(
         x1FFF11_ac_ability.MESSAGE_ID: x1FFF11_ac_ability.AcAbilityEncoder(),
         x1FFF13_zone_names.MESSAGE_ID: x1FFF13_zone_names.ZoneNamesEncoder(),
         x1FFF30_console_ver.MESSAGE_ID: x1FFF30_console_ver.ConsoleVersionEncoder(),
+        x1FFF49_quick_timer.MESSAGE_ID: x1FFF49_quick_timer.QuickTimerEncoder(),
     }
 )
 _extended_decoder = x1F_ext.ExtendedMessageDecoder(
@@ -81,6 +85,7 @@ _extended_decoder = x1F_ext.ExtendedMessageDecoder(
         x1FFF11_ac_ability.MESSAGE_ID: x1FFF11_ac_ability.AcAbilityDecoder(),
         x1FFF13_zone_names.MESSAGE_ID: x1FFF13_zone_names.ZoneNamesDecoder(),
         x1FFF30_console_ver.MESSAGE_ID: x1FFF30_console_ver.ConsoleVersionDecoder(),
+        x1FFF49_quick_timer.MESSAGE_ID: x1FFF49_quick_timer.QuickTimerDecoder(),
     }
 )
 
@@ -99,6 +104,8 @@ _ctrl_status_encoder = xC0_ctrl_status.ControlStatusEncoder(
         xC021_zone_status.MESSAGE_ID: xC021_zone_status.ZoneStatusEncoder(),
         xC022_ac_ctrl.MESSAGE_ID: xC022_ac_ctrl.AcControlEncoder(),
         xC023_ac_status.MESSAGE_ID: xC023_ac_status.AcStatusEncoder(),
+        xC032_ac_timer_ctrl.MESSAGE_ID: xC032_ac_timer_ctrl.AcTimerControlEncoder(),
+        xC033_ac_timer_status.MESSAGE_ID: xC033_ac_timer_status.AcTimerStatusEncoder(),
     }
 )
 _ctrl_status_decoder = xC0_ctrl_status.ControlStatusDecoder(
@@ -107,6 +114,8 @@ _ctrl_status_decoder = xC0_ctrl_status.ControlStatusDecoder(
         xC021_zone_status.MESSAGE_ID: xC021_zone_status.ZoneStatusDecoder(),
         xC022_ac_ctrl.MESSAGE_ID: xC022_ac_ctrl.AcControlDecoder(),
         xC023_ac_status.MESSAGE_ID: xC023_ac_status.AcStatusDecoder(),
+        xC032_ac_timer_ctrl.MESSAGE_ID: xC032_ac_timer_ctrl.AcTimerControlDecoder(),
+        xC033_ac_timer_status.MESSAGE_ID: xC033_ac_timer_status.AcTimerStatusDecoder(),
     }
 )
 
