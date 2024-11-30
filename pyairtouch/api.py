@@ -6,6 +6,7 @@ versions.
 
 import datetime
 from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any, Optional, Protocol
 
@@ -96,6 +97,14 @@ class AcTimerType(Enum):
 
     OFF_TIMER = auto()
     ON_TIMER = auto()
+
+
+@dataclass(frozen=True)
+class AcErrorInfo:
+    """Error information for an Air-Conditioner."""
+
+    code: int
+    description: Optional[str]
 
 
 class ZonePowerState(Enum):
@@ -380,6 +389,14 @@ class AirConditioner(Protocol):
             None if the timer is not active. The time object is "naive" and has
             no embedded time-zone information. It is up to the user to apply
             appropriate time-zone offsets.
+        """
+
+    @property
+    def error_info(self) -> Optional[AcErrorInfo]:
+        """Error information for the AC.
+
+        Returns:
+            The error code and descriptive string, or None if there is no error.
         """
 
     async def set_power(self, power_control: AcPowerControl) -> None:

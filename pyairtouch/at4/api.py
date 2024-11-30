@@ -14,6 +14,7 @@ import pyairtouch.api
 import pyairtouch.at4.comms.hdr
 import pyairtouch.at4.comms.registry
 import pyairtouch.at4.comms.x1F_ext as extended_msg
+import pyairtouch.at4.comms.x1FFF10_err_info as err_info_msg
 import pyairtouch.at4.comms.x1FFF11_ac_ability as ac_ability_msg
 import pyairtouch.at4.comms.x1FFF12_group_names as group_names_msg
 import pyairtouch.at4.comms.x1FFF20_quick_timer as quick_timer_msg
@@ -344,6 +345,7 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
             on_timer=ac_timer_status_msg.AcTimerState(disabled=True, hour=0, minute=0),
             off_timer=ac_timer_status_msg.AcTimerState(disabled=True, hour=0, minute=0),
         )
+        self._ac_error_info: Optional[str] = None
 
         self._zones = zones
         for zone in self._zones:
@@ -377,6 +379,18 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
         self._ac_status = ac_status
 
         if old_status != ac_status:
+            # Ensure error information is up to date according to the current
+            # error code.
+            if ac_status.has_error():
+                await self._socket.send(
+                    message=err_info_msg.AcErrorInformationRequest(
+                        ac_number=self.ac_id
+                    ),
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
+            else:
+                self._ac_error_info = None
+
             await _notify_subscribers(
                 [
                     s(self.ac_id)
@@ -395,6 +409,19 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
         self._ac_timer_status = ac_timer_status
 
         if old_status != ac_timer_status:
+            await _notify_subscribers(
+                [
+                    s(self.ac_id)
+                    for s in self._subscribers.union(self._subscribers_ac_state)
+                ]
+            )
+
+    async def update_ac_error_info(self, error_info: Optional[str]) -> None:
+        """Update the AC Error Information with new data."""
+        old_error_info = self._ac_error_info
+        self._ac_error_info = error_info
+
+        if old_error_info != error_info:
             await _notify_subscribers(
                 [
                     s(self.ac_id)
@@ -505,6 +532,16 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
         if timer_state.disabled:
             return None
         return datetime.time(hour=timer_state.hour, minute=timer_state.minute)
+
+    @override
+    @property
+    def error_info(self) -> Optional[pyairtouch.api.AcErrorInfo]:
+        if self._ac_status.has_error():
+            return pyairtouch.api.AcErrorInfo(
+                code=self._ac_status.error_code,
+                description=self._ac_error_info,
+            )
+        return None
 
     @override
     async def set_power(self, power_control: pyairtouch.api.AcPowerControl) -> None:
@@ -981,6 +1018,9 @@ class AirTouch4(pyairtouch.api.AirTouch):
             ) if (self._state == _AirTouchState.CONNECTED):
                 await self._process_console_version_update(message.sub_message)
 
+            case extended_msg.ExtendedMessage(err_info_msg.AcErrorInformationMessage()):
+                await self._process_ac_error_info_message(message.sub_message)
+
     def _process_group_names_message(self, group_names: Mapping[int, str]) -> None:
         for group_number, group_name in group_names.items():
             self._zones[group_number] = At4Zone(
@@ -1045,6 +1085,13 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 # The AC Timer Status always includes an entry for four ACs even
                 # if there is only one. Ignore any unmatched ac_number values.
                 pass
+
+    async def _process_ac_error_info_message(
+        self, ac_error_info: err_info_msg.AcErrorInformationMessage
+    ) -> None:
+        ac_instance = self._air_conditioners.get(ac_error_info.ac_number)
+        if ac_instance:
+            await ac_instance.update_ac_error_info(ac_error_info.error_info)
 
     async def _process_group_status_message(
         self, groups: Sequence[group_status_msg.GroupStatusData]

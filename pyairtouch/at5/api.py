@@ -13,6 +13,7 @@ from typing_extensions import override
 import pyairtouch.api
 import pyairtouch.at5.comms.hdr
 import pyairtouch.at5.comms.registry
+import pyairtouch.at5.comms.x1FFF10_err_info as err_info_msg
 import pyairtouch.at5.comms.x1FFF30_console_ver as console_ver_msg
 import pyairtouch.at5.comms.x1FFF49_quick_timer as quick_timer_msg
 import pyairtouch.at5.comms.xC020_zone_ctrl as zone_ctrl_msg
@@ -385,6 +386,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
             on_timer=ac_timer_status_msg.AcTimerState(disabled=True, hour=0, minute=0),
             off_timer=ac_timer_status_msg.AcTimerState(disabled=True, hour=0, minute=0),
         )
+        self._ac_error_info: Optional[str] = None
 
         self._zones = zones
         for zone in self._zones:
@@ -418,6 +420,18 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
         self._ac_status = ac_status
 
         if old_status != ac_status:
+            # Ensure error information is up to date according to the current
+            # error code.
+            if ac_status.has_error():
+                await self._socket.send(
+                    message=err_info_msg.AcErrorInformationRequest(
+                        ac_number=self.ac_id
+                    ),
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
+            else:
+                self._ac_error_info = None
+
             await _notify_subscribers(
                 [
                     s(self.ac_id)
@@ -436,6 +450,19 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
         self._ac_timer_status = ac_timer_status
 
         if old_status != ac_timer_status:
+            await _notify_subscribers(
+                [
+                    s(self.ac_id)
+                    for s in self._subscribers.union(self._subscribers_ac_state)
+                ]
+            )
+
+    async def update_ac_error_info(self, error_info: Optional[str]) -> None:
+        """Update the AC Error Information with new data."""
+        old_error_info = self._ac_error_info
+        self._ac_error_info = error_info
+
+        if old_error_info != error_info:
             await _notify_subscribers(
                 [
                     s(self.ac_id)
@@ -567,6 +594,16 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
         if timer_state.disabled:
             return None
         return datetime.time(hour=timer_state.hour, minute=timer_state.minute)
+
+    @override
+    @property
+    def error_info(self) -> Optional[pyairtouch.api.AcErrorInfo]:
+        if self._ac_status.has_error():
+            return pyairtouch.api.AcErrorInfo(
+                code=self._ac_status.error_code,
+                description=self._ac_error_info,
+            )
+        return None
 
     @override
     async def set_power(self, power_control: pyairtouch.api.AcPowerControl) -> None:
@@ -936,7 +973,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
             )
 
-    async def _message_received(  # noqa: C901
+    async def _message_received(  # noqa: C901, PLR0912
         self,
         header: pyairtouch.at5.comms.hdr.At5Header,
         message: pyairtouch.comms.Message,
@@ -1064,6 +1101,9 @@ class AirTouch5(pyairtouch.api.AirTouch):
             ):
                 await self._process_console_version_update(message.sub_message)
 
+            case ExtendedMessage(err_info_msg.AcErrorInformationMessage()):
+                await self._process_ac_error_info_message(message.sub_message)
+
     def _process_zone_names_message(self, zone_names: Mapping[int, str]) -> None:
         for zone_number, zone_name in zone_names.items():
             self._zones[zone_number] = At5Zone(
@@ -1110,6 +1150,13 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 _LOGGER.warning(
                     "Unknown AC in AC Timer Status: %d", ac_timer_status.ac_number
                 )
+
+    async def _process_ac_error_info_message(
+        self, ac_error_info: err_info_msg.AcErrorInformationMessage
+    ) -> None:
+        ac_instance = self._air_conditioners.get(ac_error_info.ac_number)
+        if ac_instance:
+            await ac_instance.update_ac_error_info(ac_error_info.error_info)
 
     async def _process_zone_status_message(
         self, zone_statuses: Sequence[zone_status_msg.ZoneStatusData]
