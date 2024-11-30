@@ -31,11 +31,10 @@ build-backend = "pdm.backend"
 select = ["ALL"] # We'll disable specific rules where appropriate.
 
 ignore = [
-    "ANN101", # Don't require typing for self
-    "ANN102", # Don't require typing for cls
     "D417",   # Don't force every argument to be documented
     "EM101",  # raw-string-in-exception
     "EM102",  # f-string-in-exception
+    "RUF022", # allow unsorted __all__
     "TRY003", # Exception messages are useful.
     "UP007",  # typing.Optional is useful. See https://github.com/astral-sh/ruff/issues/4858
 
