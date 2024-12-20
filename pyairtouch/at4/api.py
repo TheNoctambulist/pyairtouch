@@ -383,8 +383,10 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
             # error code.
             if ac_status.has_error():
                 await self._socket.send(
-                    message=err_info_msg.AcErrorInformationRequest(
-                        ac_number=self.ac_id
+                    message=extended_msg.ExtendedMessage(
+                        sub_message=err_info_msg.AcErrorInformationRequest(
+                            ac_number=self.ac_id
+                        )
                     ),
                     retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
                 )
