@@ -61,7 +61,7 @@ class QuickTimerEncoder(
     @override
     def encode(
         self,
-        _: x1F_ext.ExtendedMessageSubHeader,
+        header: x1F_ext.ExtendedMessageSubHeader,
         message: QuickTimerMessage,
     ) -> bytes:
         hours, minutes = self._encode_duration(message.duration)

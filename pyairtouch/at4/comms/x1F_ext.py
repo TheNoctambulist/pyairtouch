@@ -109,7 +109,7 @@ class ExtendedMessageEncoder(comms.MessageEncoder[At4Header, ExtendedMessage[Any
         )
 
         return _SUB_HEADER_STRUCT.pack(sub_message_id) + sub_message_encoder.encode(
-            header=sub_header, message=sub_message
+            sub_header, sub_message
         )
 
 
