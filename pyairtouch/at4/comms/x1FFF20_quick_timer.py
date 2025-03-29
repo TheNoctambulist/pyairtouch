@@ -94,7 +94,7 @@ class QuickTimerDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, _: x1F_ext.ExtendedMessageSubHeader
+        self, buffer: bytes | bytearray, header: x1F_ext.ExtendedMessageSubHeader
     ) -> comms.MessageDecodeResult[QuickTimerMessage]:
         (
             ac_number,

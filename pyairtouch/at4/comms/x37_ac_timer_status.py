@@ -78,9 +78,10 @@ class AcTimerStatusRequest(comms.Message):
         return MESSAGE_ID
 
 
-_TIMER_STATE_STRUCT = struct.Struct("!BBxx")
-# On and Off Timer for each AC
-_TIMER_STATUS_REPEAT_SIZE = 2 * _TIMER_STATE_STRUCT.size
+_TIMER_STATE_STRUCT = struct.Struct("!BB")
+_TIMER_STATE_PADDING_SIZE = 4
+# On and Off Timer for each AC plus padding
+_TIMER_STATUS_REPEAT_SIZE = 2 * _TIMER_STATE_STRUCT.size + _TIMER_STATE_PADDING_SIZE
 
 
 class AcTimerStatusEncoder(

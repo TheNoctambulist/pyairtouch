@@ -154,8 +154,8 @@ class ExtendedMessageDecoder(
 
         sub_message_decoder = self._sub_message_decoder(sub_message_id)
         sub_message_result = sub_message_decoder.decode(
-            buffer=buffer[_SUB_HEADER_STRUCT.size :],
-            header=sub_header,
+            buffer[_SUB_HEADER_STRUCT.size :],
+            sub_header,
         )
         return comms.MessageDecodeResult(
             message=ExtendedMessage(sub_message=sub_message_result.message),

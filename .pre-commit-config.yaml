@@ -22,3 +22,9 @@ repos:
         files: '\.py$'
         stages:
           - pre-commit
+      - id: py-test
+        name: PyTest
+        language: system
+        entry: pdm run pytest
+        files: '\.py$'
+
