@@ -33,12 +33,18 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class AcPowerState(enum.Enum):
-    """Current power state of the air-conditioner."""
+    """Current power state of the air-conditioner.
+
+    OFF_FORCED indicates that the AirTouch system is turned on but the AC itself
+    has been turned off by smart control features. This is not yet documented in
+    the communication protocol.
+    """
 
     OFF = 0
     ON = 1
     OFF_AWAY = 2
     ON_AWAY = 3
+    OFF_FORCED = 4
     SLEEP = 5
     UNKNOWN = 15
 

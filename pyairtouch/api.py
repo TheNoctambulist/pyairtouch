@@ -36,13 +36,18 @@ class AirTouchModel(Enum):
 
 
 class AcPowerState(Enum):
-    """The power state of an Air-Conditioner."""
+    """The power state of an Air-Conditioner.
+
+    OFF_FORCED indicates that the AirTouch system is switched on, but smart
+    features have forced the AC unit to temporarily switch off.
+    """
 
     OFF = auto()
     ON = auto()
     OFF_AWAY = auto()
     ON_AWAY = auto()
     SLEEP = auto()
+    OFF_FORCED = auto()
 
 
 class AcPowerControl(Enum):

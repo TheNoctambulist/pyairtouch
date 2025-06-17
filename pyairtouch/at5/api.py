@@ -247,6 +247,7 @@ _AC_POWER_STATE_MAPPING = {
     ac_status_msg.AcPowerState.OFF_AWAY: pyairtouch.api.AcPowerState.OFF_AWAY,
     ac_status_msg.AcPowerState.ON_AWAY: pyairtouch.api.AcPowerState.ON_AWAY,
     ac_status_msg.AcPowerState.SLEEP: pyairtouch.api.AcPowerState.SLEEP,
+    ac_status_msg.AcPowerState.OFF_FORCED: pyairtouch.api.AcPowerState.OFF_FORCED,
 }
 _API_POWER_CONTROL_MAPPING = {
     pyairtouch.api.AcPowerControl.TOGGLE: ac_ctrl_msg.AcPowerControl.TOGGLE,
