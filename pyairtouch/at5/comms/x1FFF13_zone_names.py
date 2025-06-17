@@ -92,7 +92,7 @@ class ZoneNamesEncoder(
             encoded_name = zone_name.encode(encoding=encoding.STRING_ENCODING)
             buffer.append(len(encoded_name))
             buffer.extend(encoded_name)
-        return buffer
+        return bytes(buffer)
 
 
 class ZoneNamesDecoder(
@@ -113,14 +113,14 @@ class ZoneNamesDecoder(
         if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=ZoneNamesRequest(zone_number="ALL"),
-                remaining=buffer,
+                remaining=bytes(buffer),
             )
 
         # If there is only one byte, then this is a request for a specific zone
         if header.message_length == 1:
             return comms.MessageDecodeResult(
                 message=ZoneNamesRequest(zone_number=buffer[0]),
-                remaining=buffer[1:],
+                remaining=bytes(buffer[1:]),
             )
 
         # Otherwise, decode zone names for one or more zones:
@@ -151,5 +151,5 @@ class ZoneNamesDecoder(
 
         return comms.MessageDecodeResult(
             message=ZoneNamesMessage(zone_names=zone_names),
-            remaining=buffer[offset:],
+            remaining=bytes(buffer[offset:]),
         )

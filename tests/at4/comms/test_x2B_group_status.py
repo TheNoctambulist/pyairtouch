@@ -27,7 +27,7 @@ def generate_header(message: GroupStatusMessage | GroupStatusRequest) -> At4Head
 
 
 @pytest.mark.parametrize(
-    argnames=["message", "message_buffer"],
+    argnames=("message", "message_buffer"),
     argvalues=[
         #
         # Example messages from the interface specification.

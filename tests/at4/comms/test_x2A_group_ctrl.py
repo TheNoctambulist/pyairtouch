@@ -27,7 +27,7 @@ def generate_header(message: GroupControlMessage) -> At4Header:
 
 
 @pytest.mark.parametrize(
-    argnames=["message", "message_buffer"],
+    argnames=("message", "message_buffer"),
     argvalues=[
         #
         # Example messages from the interface specification.
@@ -85,30 +85,30 @@ def generate_header(message: GroupControlMessage) -> At4Header:
         #
         (
             GroupControlMessage(
-                group_number=0,
+                group_number=1,
                 power=GroupPowerControl.UNCHANGED,
                 control_method=GroupControlMethod.CHANGE,
                 setting=None,
             ),
-            bytes((0x00, 0b00001000, 0x00, 0x00)),
+            bytes((0x01, 0b00001000, 0x00, 0x00)),
         ),
         (
             GroupControlMessage(
-                group_number=0,
+                group_number=1,
                 power=GroupPowerControl.UNCHANGED,
                 control_method=GroupControlMethod.DAMPER,
                 setting=None,
             ),
-            bytes((0x00, 0b00010000, 0x00, 0x00)),
+            bytes((0x01, 0b00010000, 0x00, 0x00)),
         ),
         (
             GroupControlMessage(
-                group_number=0,
+                group_number=1,
                 power=GroupPowerControl.UNCHANGED,
                 control_method=GroupControlMethod.TEMPERATURE,
                 setting=None,
             ),
-            bytes((0x00, 0b00011000, 0x00, 0x00)),
+            bytes((0x01, 0b00011000, 0x00, 0x00)),
         ),
         #
         # Settings

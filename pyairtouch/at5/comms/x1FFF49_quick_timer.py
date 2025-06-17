@@ -109,7 +109,7 @@ class QuickTimerDecoder(
                 timer_type=self._decode_timer_type(timer_type_raw),
                 duration=self._decode_duration(hours, minutes),
             ),
-            remaining=buffer[_STRUCT.size :],
+            remaining=bytes(buffer[_STRUCT.size :]),
         )
 
     def _decode_timer_type(self, timer_type_raw: int) -> TimerType:

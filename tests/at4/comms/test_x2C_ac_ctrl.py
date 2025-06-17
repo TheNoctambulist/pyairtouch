@@ -27,7 +27,7 @@ def generate_header(message: AcControlMessage) -> At4Header:
 
 
 @pytest.mark.parametrize(
-    argnames=["message", "message_buffer"],
+    argnames=("message", "message_buffer"),
     argvalues=[
         #
         # Example message from the interface specification.

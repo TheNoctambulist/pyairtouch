@@ -116,10 +116,10 @@ class AcTimerStatusEncoder(
             off_offset = on_offset + _TIMER_STATE_STRUCT.size
             self._pack_timer_state(buffer, off_offset, ac_timer_status.off_timer)
 
-        return buffer
+        return bytes(buffer)
 
     def _pack_timer_state(
-        self, buffer: bytes, offset: int, timer_state: AcTimerState
+        self, buffer: bytes | bytearray, offset: int, timer_state: AcTimerState
     ) -> None:
         encoded_disabled = encoding.bool_to_bit(timer_state.disabled, 7)
         encoded_hour = timer_state.hour & 0x1F
@@ -141,7 +141,7 @@ class AcTimerStatusDecoder(
         if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=AcTimerStatusRequest(),
-                remaining=buffer,
+                remaining=bytes(buffer),
             )
 
         # Otherwise decode status information for each AC:
@@ -168,7 +168,7 @@ class AcTimerStatusDecoder(
 
         return comms.MessageDecodeResult(
             message=AcTimerStatusMessage(ac_timer_status),
-            remaining=buffer[header.message_length :],
+            remaining=bytes(buffer[header.message_length :]),
         )
 
     def _decode_timer_state(

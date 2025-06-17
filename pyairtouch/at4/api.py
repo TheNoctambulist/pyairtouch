@@ -927,7 +927,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
         match message:
             case extended_msg.ExtendedMessage(
                 console_ver_msg.ConsoleVersionMessage()
-            ) if (self._state == _AirTouchState.INIT_VERSION):
+            ) if self._state == _AirTouchState.INIT_VERSION:
                 self._console_version = message.sub_message
                 # Move to the next state
                 self._state = _AirTouchState.INIT_GROUP_NAMES
@@ -941,7 +941,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
 
             case extended_msg.ExtendedMessage(
                 group_names_msg.GroupNamesMessage(group_names)
-            ) if (self._state == _AirTouchState.INIT_GROUP_NAMES):
+            ) if self._state == _AirTouchState.INIT_GROUP_NAMES:
                 self._process_group_names_message(group_names)
                 # Move to the next state
                 self._state = _AirTouchState.INIT_AC_ABILITY
@@ -955,7 +955,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
 
             case extended_msg.ExtendedMessage(
                 ac_ability_msg.AcAbilityMessage(ac_abilities)
-            ) if (self._state == _AirTouchState.INIT_AC_ABILITY):
+            ) if self._state == _AirTouchState.INIT_AC_ABILITY:
                 self._process_ac_ability_message(ac_abilities)
                 # Move to the next state
                 self._state = _AirTouchState.INIT_AC_STATUS
@@ -1016,7 +1016,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
 
             case extended_msg.ExtendedMessage(
                 console_ver_msg.ConsoleVersionMessage()
-            ) if (self._state == _AirTouchState.CONNECTED):
+            ) if self._state == _AirTouchState.CONNECTED:
                 await self._process_console_version_update(message.sub_message)
 
             case extended_msg.ExtendedMessage(err_info_msg.AcErrorInformationMessage()):

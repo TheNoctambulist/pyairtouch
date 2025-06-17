@@ -89,7 +89,7 @@ class ConsoleVersionEncoder(
         )
         buffer.append(len(encoded_versions))
         buffer.extend(encoded_versions)
-        return buffer
+        return bytes(buffer)
 
 
 class ConsoleVersionDecoder(
@@ -110,7 +110,7 @@ class ConsoleVersionDecoder(
         if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=ConsoleVersionRequest(),
-                remaining=buffer,
+                remaining=bytes(buffer),
             )
 
         # Otherwise this is a console version message
@@ -126,5 +126,5 @@ class ConsoleVersionDecoder(
             message=ConsoleVersionMessage(
                 update_available=(update_raw != 0), versions=versions.split(VERSION_SEP)
             ),
-            remaining=buffer[version_end:],
+            remaining=bytes(buffer[version_end:]),
         )

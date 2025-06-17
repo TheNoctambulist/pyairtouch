@@ -21,7 +21,7 @@ def generate_header(
 
 
 @pytest.mark.parametrize(
-    argnames=["message", "message_buffer"],
+    argnames=("message", "message_buffer"),
     argvalues=[
         #
         # Examples from the interface specification

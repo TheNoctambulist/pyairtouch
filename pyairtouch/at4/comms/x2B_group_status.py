@@ -150,7 +150,7 @@ class GroupStatusEncoder(
             b56 = encoded_temperature + encoded_spill_active
             buffer.extend(_STRUCT.pack(b1, b2, b3, encoded_has_sensor, b56))
 
-        return buffer
+        return bytes(buffer)
 
     def _encode_group_number(self, group_number: int) -> int:
         return group_number & 0x3F
@@ -203,7 +203,7 @@ class GroupStatusDecoder(
         if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=GroupStatusRequest(),
-                remaining=buffer,
+                remaining=bytes(buffer),
             )
 
         # Otherwise decode status information for each group:
@@ -241,7 +241,8 @@ class GroupStatusDecoder(
             buffer = buffer[_STRUCT.size :]
 
         return comms.MessageDecodeResult(
-            message=GroupStatusMessage(groups), remaining=buffer
+            message=GroupStatusMessage(groups),
+            remaining=bytes(buffer),
         )
 
     def _decode_group_number(self, byte1: int) -> int:

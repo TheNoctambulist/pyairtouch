@@ -219,7 +219,7 @@ class AcStatusEncoder(
             )
             buffer.extend(_PADDING_BYTES)
 
-        return buffer
+        return bytes(buffer)
 
     def _encode_ac_number(self, ac_number: int) -> int:
         return ac_number & 0x0F
@@ -275,8 +275,7 @@ class AcStatusDecoder(
         # If there is no data, this is a request for AC Status
         if header.repeat_count == 0 and header.repeat_length == 0:
             return comms.MessageDecodeResult(
-                message=AcStatusRequest(),
-                remaining=buffer,
+                message=AcStatusRequest(), remaining=bytes(buffer)
             )
 
         # Otherwise decode AC Status information for each AC:
@@ -326,8 +325,7 @@ class AcStatusDecoder(
             buffer = buffer[header.repeat_length :]
 
         return comms.MessageDecodeResult(
-            message=AcStatusMessage(acs),
-            remaining=buffer,
+            message=AcStatusMessage(acs), remaining=bytes(buffer)
         )
 
     def _decode_ac_number(self, byte1: int) -> int:

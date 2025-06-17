@@ -138,7 +138,7 @@ class AcControlEncoder(xC0_ctrl_status.ControlStatusSubEncoder[AcControlMessage]
             buffer.extend(
                 _STRUCT.pack(b1, b2, encoded_set_point_control, encoded_set_point)
             )
-        return buffer
+        return bytes(buffer)
 
     def _encode_ac_number(self, ac_number: int) -> int:
         return ac_number & 0x0F
@@ -184,8 +184,7 @@ class AcControlDecoder(
             buffer = buffer[_STRUCT.size :]
 
         return comms.MessageDecodeResult(
-            message=AcControlMessage(ac_control=ac_control),
-            remaining=buffer,
+            message=AcControlMessage(ac_control=ac_control), remaining=bytes(buffer)
         )
 
     def _decode_ac_number(self, byte1: int) -> int:

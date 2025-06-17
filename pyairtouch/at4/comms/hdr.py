@@ -106,6 +106,6 @@ class HeaderDecoder(comms.HeaderDecoder[At4Header]):
                 message_id=message_id,
                 message_length=message_length,
             ),
-            remaining=buffer[_STRUCT.size :],
-            checksum_data=buffer[_CHECKSUM_DATA_START : _STRUCT.size],
+            remaining=bytes(buffer[_STRUCT.size :]),
+            checksum_data=bytes(buffer[_CHECKSUM_DATA_START : _STRUCT.size]),
         )

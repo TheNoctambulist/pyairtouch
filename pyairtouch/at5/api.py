@@ -1052,7 +1052,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
 
             case ControlStatusMessage(
                 ac_timer_status_msg.AcTimerStatusMessage(ac_timer_statuses)
-            ) if (self._state == _AirTouchState.INIT_AC_TIMER_STATUS):
+            ) if self._state == _AirTouchState.INIT_AC_TIMER_STATUS:
                 await self._process_ac_timer_status_message(ac_timer_statuses)
                 # Move to the next state
                 self._state = _AirTouchState.INIT_ZONE_STATUS
@@ -1090,7 +1090,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
 
             case ControlStatusMessage(
                 ac_timer_status_msg.AcTimerStatusMessage(ac_timer_statuses)
-            ) if (self._state == _AirTouchState.CONNECTED):
+            ) if self._state == _AirTouchState.CONNECTED:
                 await self._process_ac_timer_status_message(ac_timer_statuses)
 
             case ControlStatusMessage(

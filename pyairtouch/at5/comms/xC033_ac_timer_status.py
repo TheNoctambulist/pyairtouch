@@ -130,7 +130,7 @@ class AcTimerStatusEncoder(
             buffer.extend(self._encode_timer_state(ac.off_timer))
             buffer.extend(_PADDING_BYTES)
 
-        return buffer
+        return bytes(buffer)
 
     def _encode_timer_state(self, timer_state: AcTimerState) -> bytes:
         encoded_active = encoding.bool_to_bit(timer_state.disabled, 7)
@@ -162,8 +162,7 @@ class AcTimerStatusDecoder(
         # If there is no data, this is a request for AC Timer Status
         if header.repeat_count == 0 and header.repeat_length == 0:
             return comms.MessageDecodeResult(
-                message=AcTimerStatusRequest(),
-                remaining=buffer,
+                message=AcTimerStatusRequest(), remaining=bytes(buffer)
             )
 
         # Otherwise decode AC Timer Status information for each AC:
@@ -195,8 +194,7 @@ class AcTimerStatusDecoder(
             buffer = buffer[header.repeat_length :]
 
         return comms.MessageDecodeResult(
-            message=AcTimerStatusMessage(acs),
-            remaining=buffer,
+            message=AcTimerStatusMessage(acs), remaining=bytes(buffer)
         )
 
     def _decode_timer_state(self, buffer: bytes | bytearray) -> AcTimerState:

@@ -27,7 +27,7 @@ def generate_header(message: ZoneControlMessage) -> ControlStatusSubHeader:
 
 
 @pytest.mark.parametrize(
-    argnames=["message", "message_buffer"],
+    argnames=("message", "message_buffer"),
     argvalues=[
         #
         # Example message from the protocol document.

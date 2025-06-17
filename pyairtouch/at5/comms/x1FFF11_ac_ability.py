@@ -124,7 +124,7 @@ class AcAbilityEncoder(
                     ac.max_heat_set_point,
                 )
             )
-        return buffer
+        return bytes(buffer)
 
     def _encode_mode_support(self, mode_support: Mapping[AcModeControl, bool]) -> int:
         return (
@@ -170,14 +170,14 @@ class AcAbilityDecoder(
         if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=AcAbilityRequest(ac_number="ALL"),
-                remaining=buffer,
+                remaining=bytes(buffer),
             )
 
         # If there is only one byte, then this is a request for a specific AC
         if header.message_length == 1:
             return comms.MessageDecodeResult(
                 message=AcAbilityRequest(ac_number=buffer[0]),
-                remaining=buffer[1:],
+                remaining=bytes(buffer[1:]),
             )
 
         # Otherwise decode ability information for one or more ACs:
@@ -221,7 +221,7 @@ class AcAbilityDecoder(
 
         return comms.MessageDecodeResult(
             message=AcAbilityMessage(ac_abilities=ac_abilities),
-            remaining=buffer,
+            remaining=bytes(buffer),
         )
 
     def _decode_ac_mode_support(self, byte23: int) -> Mapping[AcModeControl, bool]:

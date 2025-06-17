@@ -96,9 +96,10 @@ class UnsupportedControlStatusDecoder(
         )
         return comms.MessageDecodeResult(
             message=comms.UnsupportedMessage(
-                unsupported_id=header.sub_message_id, raw_data=buffer[:data_length]
+                unsupported_id=header.sub_message_id,
+                raw_data=bytes(buffer[:data_length]),
             ),
-            remaining=buffer[data_length:],
+            remaining=bytes(buffer[data_length:]),
         )
 
 

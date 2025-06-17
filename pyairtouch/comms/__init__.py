@@ -206,9 +206,9 @@ class UnsupportedMessageDecoder(MessageDecoder[Hdr_contra, UnsupportedMessage]):
         return MessageDecodeResult(
             message=UnsupportedMessage(
                 unsupported_id=header.message_id,
-                raw_data=buffer[: header.message_length],
+                raw_data=bytes(buffer[: header.message_length]),
             ),
-            remaining=buffer[header.message_length :],
+            remaining=bytes(buffer[header.message_length :]),
         )
 
 

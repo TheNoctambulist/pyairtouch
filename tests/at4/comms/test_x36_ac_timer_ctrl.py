@@ -118,7 +118,7 @@ _common_parametrizations = [
 
 class TestAcTimerStatusStatusEncoderDecoder:
     @pytest.mark.parametrize(
-        argnames=["message", "message_buffer"],
+        argnames=("message", "message_buffer"),
         argvalues=[
             *_common_parametrizations,
             #
@@ -177,7 +177,7 @@ class TestAcTimerStatusStatusEncoderDecoder:
         assert message_buffer == encoded_buffer
 
     @pytest.mark.parametrize(
-        argnames=["message", "message_buffer"],
+        argnames=("message", "message_buffer"),
         argvalues=[
             *_common_parametrizations,
             #
@@ -214,10 +214,7 @@ class TestAcTimerStatusStatusEncoderDecoder:
                         ),
                     ]
                 ),
-                (
-                    b"\x82\x03\x84\x05\x00\x00\x00\x00"
-                    b"\x02\x03\x84\x05\x00\x00\x00\x00"
-                ),
+                (b"\x82\x03\x84\x05\x00\x00\x00\x00\x02\x03\x84\x05\x00\x00\x00\x00"),
             ),
         ],
     )

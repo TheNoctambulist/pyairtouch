@@ -95,7 +95,7 @@ class GroupNamesEncoder(
         for group_number, group_name in message.group_names.items():
             buffer.append(group_number)
             buffer.extend(encoding.encode_c_string(group_name, _GROUP_NAME_LENGTH))
-        return buffer
+        return bytes(buffer)
 
 
 class GroupNamesDecoder(
@@ -116,14 +116,14 @@ class GroupNamesDecoder(
         if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=GroupNamesRequest(group_number="ALL"),
-                remaining=buffer,
+                remaining=bytes(buffer),
             )
 
         # If there is only one byte, then this is a request for a single group
         if header.message_length == 1:
             return comms.MessageDecodeResult(
                 message=GroupNamesRequest(group_number=buffer[0]),
-                remaining=buffer[1:],
+                remaining=bytes(buffer[1:]),
             )
 
         # Otherwise, decode group names for one or more groups:
@@ -144,5 +144,5 @@ class GroupNamesDecoder(
 
         return comms.MessageDecodeResult(
             message=GroupNamesMessage(group_names),
-            remaining=buffer,
+            remaining=bytes(buffer),
         )

@@ -92,7 +92,7 @@ class AcErrorInformationEncoder(
             else:
                 buffer.append(0)
 
-        return buffer
+        return bytes(buffer)
 
 
 class AcErrorInformationDecoder(
@@ -114,7 +114,8 @@ class AcErrorInformationDecoder(
         # If the data only contains the AC number then this is a request
         if header.message_length == 1:
             return comms.MessageDecodeResult(
-                message=AcErrorInformationRequest(ac_number), remaining=buffer[1:]
+                message=AcErrorInformationRequest(ac_number),
+                remaining=bytes(buffer[1:]),
             )
 
         # Otherwise this is the error information
@@ -133,5 +134,5 @@ class AcErrorInformationDecoder(
                 ac_number=ac_number,
                 error_info=error,
             ),
-            remaining=buffer[error_end:],
+            remaining=bytes(buffer[error_end:]),
         )

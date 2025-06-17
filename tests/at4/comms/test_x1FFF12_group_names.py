@@ -22,7 +22,7 @@ def generate_header(
 
 
 @pytest.mark.parametrize(
-    argnames=["message", "message_buffer"],
+    argnames=("message", "message_buffer"),
     argvalues=[
         #
         # Requests
@@ -54,9 +54,7 @@ def generate_header(
                     2: "TESTING2",  # Max length
                 }
             ),
-            b"\x01TEST 1\x00\x00"
-            b"\x05\x00\x00\x00\x00\x00\x00\x00\x00"
-            b"\x02TESTING2",
+            b"\x01TEST 1\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x02TESTING2",
         ),
     ],
 )

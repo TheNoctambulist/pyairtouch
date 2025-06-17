@@ -39,10 +39,10 @@ def encode_c_string(value: str, length: int) -> bytes:
     buffer.extend(b"\0" * (length - len(buffer)))
 
     # Truncate to the fixed length in case the value was too long.
-    return buffer[:length]
+    return bytes(buffer[:length])
 
 
-def decode_c_string(value: bytes) -> str:
+def decode_c_string(value: bytes | bytearray) -> str:
     """Decode a C-style null terminated string."""
     # Only keep the characters before the first null character
     return value.split(b"\0", 1)[0].decode(encoding=STRING_ENCODING)

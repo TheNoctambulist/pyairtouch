@@ -173,7 +173,7 @@ async def _search(remote_host: str | None = None) -> list[comms.DiscoveryRespons
     """
     discoverers = [
         pyairtouch.comms.discovery.AirTouchDiscoverer(
-            discovery_config=cast(_C, config),
+            discovery_config=cast("_C", config),
             remote_host=remote_host,
         )
         for config in [at4_discovery.CONFIG, at5_discovery.CONFIG]

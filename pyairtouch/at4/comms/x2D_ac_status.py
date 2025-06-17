@@ -151,7 +151,7 @@ class AcStatusEncoder(
                 _STRUCT.pack(b1, b2, b3, encoded_temperature, ac_status.error_code)
             )
 
-        return buffer
+        return bytes(buffer)
 
     def _encode_ac_number(self, ac_number: int) -> int:
         return ac_number & 0x3F
@@ -192,7 +192,7 @@ class AcStatusDecoder(
         if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=AcStatusRequest(),
-                remaining=buffer,
+                remaining=bytes(buffer),
             )
 
         # Otherwise decode status information for each AC:
@@ -230,7 +230,7 @@ class AcStatusDecoder(
 
         return comms.MessageDecodeResult(
             message=AcStatusMessage(ac_status),
-            remaining=buffer,
+            remaining=bytes(buffer),
         )
 
     def _decode_ac_number(self, byte1: int) -> int:

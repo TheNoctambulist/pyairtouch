@@ -26,7 +26,7 @@ def generate_header(message: AcControlMessage) -> ControlStatusSubHeader:
 
 
 @pytest.mark.parametrize(
-    argnames=["message", "message_buffer"],
+    argnames=("message", "message_buffer"),
     argvalues=[
         #
         # Example messages from the protocol document.

@@ -400,7 +400,7 @@ class AirTouchSocket(Generic[comms.Hdr]):
             crc = await self._reader.readexactly(checksum_calculator.checksum_length)
 
             if _LOGGER.isEnabledFor(logging.DEBUG):
-                all_bytes = header_buffer + message_buffer + crc
+                all_bytes: bytes | bytearray = header_buffer + message_buffer + crc
                 _LOGGER.debug("Read Raw     : %s", all_bytes)
                 _LOGGER.debug("...  CRC     : %s", crc)
                 _LOGGER.debug("...  Header  : %s", header)

@@ -63,9 +63,9 @@ class UnsupportedExtendedDecoder(
         return comms.MessageDecodeResult(
             message=comms.UnsupportedMessage(
                 unsupported_id=header.message_id,
-                raw_data=buffer[: header.message_length],
+                raw_data=bytes(buffer[: header.message_length]),
             ),
-            remaining=buffer[header.message_length :],
+            remaining=bytes(buffer[header.message_length :]),
         )
 
 

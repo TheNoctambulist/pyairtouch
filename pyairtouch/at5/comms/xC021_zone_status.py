@@ -173,7 +173,7 @@ class ZoneStatusEncoder(
                     b7,
                 )
             )
-        return buffer
+        return bytes(buffer)
 
     def _encode_zone_number(self, zone_number: int) -> int:
         return zone_number & 0x3F
@@ -234,8 +234,7 @@ class ZoneStatusDecoder(
         # If there is no data in the message, this is a request for Zone Status
         if header.repeat_length == 0 and header.repeat_count == 0:
             return comms.MessageDecodeResult(
-                message=ZoneStatusRequest(),
-                remaining=buffer,
+                message=ZoneStatusRequest(), remaining=bytes(buffer)
             )
 
         # Otherwise decode Zone Status information for each zone:
@@ -281,8 +280,7 @@ class ZoneStatusDecoder(
             buffer = buffer[header.repeat_length :]
 
         return comms.MessageDecodeResult(
-            message=ZoneStatusMessage(zones=zones),
-            remaining=buffer,
+            message=ZoneStatusMessage(zones=zones), remaining=bytes(buffer)
         )
 
     def _decode_zone_number(self, byte1: int) -> int:

@@ -165,7 +165,7 @@ class AcAbilityEncoder(
                 buffer.extend(
                     _GROUP_DISPLAY_STRUCT.pack(self._encode_group_display(ac.groups))
                 )
-        return buffer
+        return bytes(buffer)
 
     def _encode_mode_support(self, mode_support: Mapping[AcModeControl, bool]) -> int:
         return (
@@ -214,14 +214,14 @@ class AcAbilityDecoder(
         if header.message_length == 0:
             return comms.MessageDecodeResult(
                 message=AcAbilityRequest(ac_number="ALL"),
-                remaining=buffer,
+                remaining=bytes(buffer),
             )
 
         # If there is only one byte, then this is a request for a specific AC
         if header.message_length == 1:
             return comms.MessageDecodeResult(
                 message=AcAbilityRequest(ac_number=buffer[0]),
-                remaining=buffer[1:],
+                remaining=bytes(buffer[1:]),
             )
 
         ac_abilities: list[AcAbility] = []
@@ -270,7 +270,7 @@ class AcAbilityDecoder(
 
         return comms.MessageDecodeResult(
             message=AcAbilityMessage(ac_abilities),
-            remaining=buffer[offset:],
+            remaining=bytes(buffer[offset:]),
         )
 
     def _decode_ac_mode_support(self, byte23: int) -> Mapping[AcModeControl, bool]:

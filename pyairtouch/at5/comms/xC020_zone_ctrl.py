@@ -123,7 +123,7 @@ class ZoneControlEncoder(xC0_ctrl_status.ControlStatusSubEncoder[ZoneControlMess
             b2 = encoded_setting + encoded_power
             buffer.extend(_STRUCT.pack(zone.zone_number, b2, setting_value))
 
-        return buffer
+        return bytes(buffer)
 
     def _encode_zone_power(self, zone_power: ZonePowerControl) -> int:
         return zone_power.value
@@ -171,8 +171,7 @@ class ZoneControlDecoder(
             )
 
         return comms.MessageDecodeResult(
-            message=ZoneControlMessage(zone_control),
-            remaining=buffer,
+            message=ZoneControlMessage(zone_control), remaining=bytes(buffer)
         )
 
     def _decode_zone_power(self, byte2: int) -> ZonePowerControl:

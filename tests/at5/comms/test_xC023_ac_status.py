@@ -29,7 +29,7 @@ def generate_header(
 
 
 @pytest.mark.parametrize(
-    argnames=["message", "message_buffer"],
+    argnames=("message", "message_buffer"),
     argvalues=[
         #
         # Example messages from the protocol document.
@@ -363,7 +363,7 @@ class TestAcStatusEncoderDecoder:
 
 
 @pytest.mark.parametrize(
-    argnames=["repeat_length", "message", "message_buffer"],
+    argnames=("repeat_length", "message", "message_buffer"),
     argvalues=[
         #
         # Test decoding with various repeat lengths that for different protocol

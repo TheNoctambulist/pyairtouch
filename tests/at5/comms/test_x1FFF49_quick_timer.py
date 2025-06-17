@@ -59,7 +59,7 @@ _common_parametrizations = [
 
 class TestQuickTimerEncoderDecoder:
     @pytest.mark.parametrize(
-        argnames=["message", "message_buffer"],
+        argnames=("message", "message_buffer"),
         argvalues=[
             *_common_parametrizations,
             #
@@ -88,7 +88,7 @@ class TestQuickTimerEncoderDecoder:
         assert message_buffer == encoded_buffer
 
     @pytest.mark.parametrize(
-        argnames=["message", "message_buffer"],
+        argnames=("message", "message_buffer"),
         argvalues=[
             *_common_parametrizations,
             #

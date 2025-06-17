@@ -168,7 +168,7 @@ class AcControlDecoder(comms.MessageDecoder[At4Header, AcControlMessage]):
                     encoded_set_point_control
                 ),
             ),
-            remaining=buffer[_STRUCT.size :],
+            remaining=bytes(buffer[_STRUCT.size :]),
         )
 
     def _decode_ac_number(self, byte1: int) -> int:

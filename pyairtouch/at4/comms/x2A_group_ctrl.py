@@ -147,7 +147,7 @@ class GroupControlDecoder(comms.MessageDecoder[At4Header, GroupControlMessage]):
                 control_method=self._decode_control_method(b2),
                 setting=self._decode_setting(b2, setting_value),
             ),
-            remaining=buffer[_STRUCT.size :],
+            remaining=bytes(buffer[_STRUCT.size :]),
         )
 
     def _decode_power(self, byte2: int) -> GroupPowerControl:
