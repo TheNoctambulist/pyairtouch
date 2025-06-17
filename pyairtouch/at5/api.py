@@ -6,13 +6,12 @@ import datetime
 import logging
 from collections.abc import Awaitable, Iterable, Mapping, Sequence
 from enum import Enum, auto
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
 import pyairtouch.api
 import pyairtouch.at5.comms.hdr
-import pyairtouch.at5.comms.registry
 import pyairtouch.at5.comms.x1FFF10_err_info as err_info_msg
 import pyairtouch.at5.comms.x1FFF30_console_ver as console_ver_msg
 import pyairtouch.at5.comms.x1FFF49_quick_timer as quick_timer_msg
@@ -154,12 +153,12 @@ class At5Zone(pyairtouch.api.Zone):
 
     @override
     @property
-    def current_temperature(self) -> Optional[float]:
+    def current_temperature(self) -> float | None:
         return self._zone_status.temperature
 
     @override
     @property
-    def target_temperature(self) -> Optional[float]:
+    def target_temperature(self) -> float | None:
         return self._zone_status.set_point
 
     @override
@@ -386,7 +385,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
             on_timer=ac_timer_status_msg.AcTimerState(disabled=True, hour=0, minute=0),
             off_timer=ac_timer_status_msg.AcTimerState(disabled=True, hour=0, minute=0),
         )
-        self._ac_error_info: Optional[str] = None
+        self._ac_error_info: str | None = None
 
         self._zones = zones
         for zone in self._zones:
@@ -459,7 +458,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
                 ]
             )
 
-    async def update_ac_error_info(self, error_info: Optional[str]) -> None:
+    async def update_ac_error_info(self, error_info: str | None) -> None:
         """Update the AC Error Information with new data."""
         old_error_info = self._ac_error_info
         self._ac_error_info = error_info
@@ -499,28 +498,28 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
 
     @override
     @property
-    def power_state(self) -> pyairtouch.api.AcPowerState:
-        return _AC_POWER_STATE_MAPPING[self._ac_status.power_state]
+    def power_state(self) -> pyairtouch.api.AcPowerState | None:
+        return _AC_POWER_STATE_MAPPING.get(self._ac_status.power_state)
 
     @override
     @property
-    def selected_mode(self) -> pyairtouch.api.AcMode:
-        return _AC_SELECTED_MODE_MAPPING[self._ac_status.mode]
+    def selected_mode(self) -> pyairtouch.api.AcMode | None:
+        return _AC_SELECTED_MODE_MAPPING.get(self._ac_status.mode)
 
     @override
     @property
-    def active_mode(self) -> pyairtouch.api.AcMode:
-        return _AC_ACTIVE_MODE_MAPPING[self._ac_status.mode]
+    def active_mode(self) -> pyairtouch.api.AcMode | None:
+        return _AC_ACTIVE_MODE_MAPPING.get(self._ac_status.mode)
 
     @override
     @property
-    def selected_fan_speed(self) -> pyairtouch.api.AcFanSpeed:
-        return _AC_SELECTED_FAN_SPEED_MAPPING[self._ac_status.fan_speed]
+    def selected_fan_speed(self) -> pyairtouch.api.AcFanSpeed | None:
+        return _AC_SELECTED_FAN_SPEED_MAPPING.get(self._ac_status.fan_speed)
 
     @override
     @property
-    def active_fan_speed(self) -> pyairtouch.api.AcFanSpeed:
-        return _AC_ACTIVE_FAN_SPEED_MAPPING[self._ac_status.fan_speed]
+    def active_fan_speed(self) -> pyairtouch.api.AcFanSpeed | None:
+        return _AC_ACTIVE_FAN_SPEED_MAPPING.get(self._ac_status.fan_speed)
 
     @override
     @property
@@ -586,7 +585,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
     @override
     def next_quick_timer(
         self, timer_type: pyairtouch.api.AcTimerType
-    ) -> Optional[datetime.time]:
+    ) -> datetime.time | None:
         match timer_type:
             case pyairtouch.api.AcTimerType.OFF_TIMER:
                 timer_state = self._ac_timer_status.off_timer
@@ -599,7 +598,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
 
     @override
     @property
-    def error_info(self) -> Optional[pyairtouch.api.AcErrorInfo]:
+    def error_info(self) -> pyairtouch.api.AcErrorInfo | None:
         if self._ac_status.has_error():
             return pyairtouch.api.AcErrorInfo(
                 code=self._ac_status.error_code,
@@ -719,7 +718,7 @@ class At5AirConditioner(pyairtouch.api.AirConditioner):
         fan_speed: ac_ctrl_msg.AcFanSpeedControl = (
             ac_ctrl_msg.AcFanSpeedControl.UNCHANGED
         ),
-        set_point: Optional[float] = None,
+        set_point: float | None = None,
     ) -> None:
         message = ControlStatusMessage(
             ac_ctrl_msg.AcControlMessage(

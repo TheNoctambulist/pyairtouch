@@ -6,13 +6,12 @@ import datetime
 import logging
 from collections.abc import Awaitable, Iterable, Mapping, Sequence
 from enum import Enum, auto
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
 import pyairtouch.api
 import pyairtouch.at4.comms.hdr
-import pyairtouch.at4.comms.registry
 import pyairtouch.at4.comms.x1F_ext as extended_msg
 import pyairtouch.at4.comms.x1FFF10_err_info as err_info_msg
 import pyairtouch.at4.comms.x1FFF11_ac_ability as ac_ability_msg
@@ -160,12 +159,12 @@ class At4Zone(pyairtouch.api.Zone):
 
     @override
     @property
-    def current_temperature(self) -> Optional[float]:
+    def current_temperature(self) -> float | None:
         return self._group_status.temperature
 
     @override
     @property
-    def target_temperature(self) -> Optional[float]:
+    def target_temperature(self) -> float | None:
         return self._group_status.set_point
 
     @override
@@ -345,7 +344,7 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
             on_timer=ac_timer_status_msg.AcTimerState(disabled=True, hour=0, minute=0),
             off_timer=ac_timer_status_msg.AcTimerState(disabled=True, hour=0, minute=0),
         )
-        self._ac_error_info: Optional[str] = None
+        self._ac_error_info: str | None = None
 
         self._zones = zones
         for zone in self._zones:
@@ -418,7 +417,7 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
                 ]
             )
 
-    async def update_ac_error_info(self, error_info: Optional[str]) -> None:
+    async def update_ac_error_info(self, error_info: str | None) -> None:
         """Update the AC Error Information with new data."""
         old_error_info = self._ac_error_info
         self._ac_error_info = error_info
@@ -524,7 +523,7 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
     @override
     def next_quick_timer(
         self, timer_type: pyairtouch.api.AcTimerType
-    ) -> Optional[datetime.time]:
+    ) -> datetime.time | None:
         match timer_type:
             case pyairtouch.api.AcTimerType.OFF_TIMER:
                 timer_state = self._ac_timer_status.off_timer
@@ -537,7 +536,7 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
 
     @override
     @property
-    def error_info(self) -> Optional[pyairtouch.api.AcErrorInfo]:
+    def error_info(self) -> pyairtouch.api.AcErrorInfo | None:
         if self._ac_status.has_error():
             return pyairtouch.api.AcErrorInfo(
                 code=self._ac_status.error_code,
@@ -796,7 +795,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
         self._state = _AirTouchState.CLOSED
         self._initialised_event = asyncio.Event()
         self._group_status_received_event = asyncio.Event()
-        self._group_status_request_task: Optional[asyncio.Task[None]] = None
+        self._group_status_request_task: asyncio.Task[None] | None = None
 
         self._subscribers: set[pyairtouch.api.AirTouchSubscriber] = set()
 

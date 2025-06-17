@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Optional, cast
+from typing import cast
 
 import pyairtouch.api
 import pyairtouch.at4.api as at4_api
@@ -23,9 +23,9 @@ def connect(  # noqa: PLR0913
     host: str,
     port: int,
     *,
-    airtouch_id: Optional[str] = None,
-    name: Optional[str] = None,
-    serial: Optional[str] = None,
+    airtouch_id: str | None = None,
+    name: str | None = None,
+    serial: str | None = None,
 ) -> pyairtouch.api.AirTouch:
     """Connect to a previously discovered AirTouch system.
 
@@ -114,7 +114,7 @@ def _connect_airtouch_5(
     )
 
 
-async def discover(remote_host: Optional[str] = None) -> list[pyairtouch.api.AirTouch]:
+async def discover(remote_host: str | None = None) -> list[pyairtouch.api.AirTouch]:
     """Automatically discover and connect to any AirTouch devices on the network.
 
     Args:
@@ -166,7 +166,7 @@ _AnyDiscoveryResponse = (
 _C = pyairtouch.comms.DiscoveryConfig[_AnyDiscoveryRequest, _AnyDiscoveryResponse]
 
 
-async def _search(remote_host: Optional[str] = None) -> list[comms.DiscoveryResponse]:
+async def _search(remote_host: str | None = None) -> list[comms.DiscoveryResponse]:
     """Discover any AirTouch devices on the network.
 
     Returns a list containing details of any discovered AirTouch device.

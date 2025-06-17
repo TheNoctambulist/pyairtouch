@@ -13,7 +13,6 @@ import enum
 import struct
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional
 
 from typing_extensions import override
 
@@ -60,7 +59,7 @@ class GroupStatusData:
     has_sensor: bool
     battery_status: SensorBatteryStatus
 
-    temperature: Optional[float]
+    temperature: float | None
     """The current group temperature in degrees Celsius.
 
     None if no temperature sensor is installed.
@@ -69,7 +68,7 @@ class GroupStatusData:
     damper_percentage: int
     """The current damper opening percentage. Range [0, 100]."""
 
-    set_point: Optional[int]
+    set_point: int | None
     """The group's temperature set-point in degrees Celsius.
 
     None if no temperature sensor is installed.
@@ -165,7 +164,7 @@ class GroupStatusEncoder(
     def _encode_open_percentage(self, damper_percentage: int) -> int:
         return damper_percentage & 0x7F
 
-    def _encode_set_point(self, set_point: Optional[int]) -> int:
+    def _encode_set_point(self, set_point: int | None) -> int:
         if set_point:
             return set_point & 0x3F
         return _INVALID_SETPOINT
@@ -176,7 +175,7 @@ class GroupStatusEncoder(
     def _encode_supports_turbo(self, supports_turbo: bool) -> int:  # noqa: FBT001
         return encoding.bool_to_bit(supports_turbo, offset=6)
 
-    def _encode_temperature(self, temperature: Optional[float]) -> int:
+    def _encode_temperature(self, temperature: float | None) -> int:
         if temperature:
             return utils.encode_temperature(temperature)
         return _TEMP_UNAVAILABLE
@@ -266,7 +265,7 @@ class GroupStatusDecoder(
     def _decode_battery_status(self, byte3: int) -> SensorBatteryStatus:
         return SensorBatteryStatus((byte3 & 0x80) >> 7)
 
-    def _decode_temperature(self, has_sensor: bool, byte56: int) -> Optional[float]:  # noqa: FBT001
+    def _decode_temperature(self, has_sensor: bool, byte56: int) -> float | None:  # noqa: FBT001
         encoded_temperature = byte56 & 0xFFE0
         if not has_sensor or encoded_temperature == _TEMP_UNAVAILABLE:
             return None
@@ -275,7 +274,7 @@ class GroupStatusDecoder(
     def _decode_open_percentage(self, byte2: int) -> int:
         return byte2 & 0x7F
 
-    def _decode_set_point(self, has_sensor: bool, byte3: int) -> Optional[int]:  # noqa: FBT001
+    def _decode_set_point(self, has_sensor: bool, byte3: int) -> int | None:  # noqa: FBT001
         if has_sensor:
             return byte3 & 0x3F
         return None

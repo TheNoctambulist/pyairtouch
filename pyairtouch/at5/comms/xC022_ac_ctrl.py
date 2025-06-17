@@ -11,7 +11,7 @@ import enum
 import struct
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
@@ -80,7 +80,7 @@ class AcControlData:
     power: AcPowerControl
     mode: AcModeControl
     fan_speed: AcFanSpeedControl
-    set_point: Optional[float]
+    set_point: float | None
 
 
 @dataclass
@@ -152,7 +152,7 @@ class AcControlEncoder(xC0_ctrl_status.ControlStatusSubEncoder[AcControlMessage]
     def _encode_fan_speed(self, fan_speed: AcFanSpeedControl) -> int:
         return fan_speed.value & 0x0F
 
-    def _encode_set_point(self, set_point: Optional[float]) -> tuple[int, int]:
+    def _encode_set_point(self, set_point: float | None) -> tuple[int, int]:
         if set_point:
             return _SET_POINT_CHANGE, utils.encode_set_point(set_point)
         # Uses 0xFF as the unchanged value based on the examples in the protocol
@@ -205,7 +205,7 @@ class AcControlDecoder(
 
     def _decode_set_point(
         self, set_point_control: int, set_point_raw: int
-    ) -> Optional[float]:
+    ) -> float | None:
         if set_point_control == _SET_POINT_UNCHANGED:
             return None
         if set_point_control == _SET_POINT_CHANGE:

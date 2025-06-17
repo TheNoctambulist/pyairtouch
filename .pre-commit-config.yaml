@@ -26,5 +26,6 @@ repos:
         name: PyTest
         language: system
         entry: pdm run pytest
+        pass_filenames: false
         files: '\.py$'
 

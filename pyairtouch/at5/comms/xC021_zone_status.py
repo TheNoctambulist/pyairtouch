@@ -19,13 +19,12 @@ import logging
 import struct
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional
 
 from typing_extensions import override
 
 from pyairtouch import comms
 from pyairtouch.at5.comms import utils, xC0_ctrl_status
-from pyairtouch.comms import encoding
+from pyairtouch.comms import encoding, log
 
 MESSAGE_ID = 0x21
 
@@ -37,6 +36,7 @@ class ZonePowerState(enum.Enum):
 
     OFF = 0
     ON = 1
+    UNKNOWN = 2
     TURBO = 3
 
 
@@ -66,7 +66,7 @@ class ZoneStatusData:
 
     has_sensor: bool
     battery_status: SensorBatteryStatus
-    temperature: Optional[float]
+    temperature: float | None
     """The current zone temperature in degrees Celsius.
 
     None if no temperature sensor is installed.
@@ -75,7 +75,7 @@ class ZoneStatusData:
     damper_percentage: int
     """The current damper opening percentage. Range [0, 100]."""
 
-    set_point: Optional[float]
+    set_point: float | None
     """The zone's temperature setpoint in degrees Celsius.
 
     None if the zone doesn't have a sensor and no set point is defined.
@@ -187,7 +187,7 @@ class ZoneStatusEncoder(
     def _encode_open_percentage(self, damper_percentage: int) -> int:
         return damper_percentage & 0x7F
 
-    def _encode_set_point(self, set_point: Optional[float]) -> int:
+    def _encode_set_point(self, set_point: float | None) -> int:
         if set_point:
             return utils.encode_set_point(set_point)
         return _INVALID_SET_POINT
@@ -195,7 +195,7 @@ class ZoneStatusEncoder(
     def _encode_has_sensor(self, has_sensor: bool) -> int:  # noqa: FBT001
         return encoding.bool_to_bit(has_sensor, 7)
 
-    def _encode_temperature(self, temperature: Optional[float]) -> int:
+    def _encode_temperature(self, temperature: float | None) -> int:
         if temperature:
             return utils.encode_temperature(temperature) & 0x07FF
         return _INVALID_TEMPERATURE
@@ -221,7 +221,11 @@ class ZoneStatusDecoder(
         """Initialise the ZoneStatusDecoder."""
         # Avoid repeated logging of message length mismatches if the console has
         # an upgraded protocol.
-        self._mismatch_logged = False
+        self._length_mismatch_event = log.LogEvent(_LOGGER, logging.INFO)
+
+        # Log warnings if the protocol has upgraded in a way that impacts the
+        # usability of the API.
+        self._unknown_power_state_event = log.LogEvent(_LOGGER, logging.WARNING)
 
     @override
     def decode(
@@ -241,14 +245,13 @@ class ZoneStatusDecoder(
                 f"Zone Status Data size ({_STRUCT.size}))"
             )
 
-        if header.repeat_length != _STRUCT.size and not self._mismatch_logged:
-            _LOGGER.info(
+        if header.repeat_length != _STRUCT.size:
+            self._length_mismatch_event.log(
                 "Header repeat_length (%d) != Zone Status Data size (%d). "
                 "Ignoring extra bytes",
                 header.repeat_length,
                 _STRUCT.size,
             )
-            self._mismatch_logged = True
 
         zones: list[ZoneStatusData] = []
         for _ in range(header.repeat_count):
@@ -286,7 +289,17 @@ class ZoneStatusDecoder(
         return byte1 & 0x3F
 
     def _decode_power_state(self, byte1: int) -> ZonePowerState:
-        return ZonePowerState((byte1 & 0xC0) >> 6)
+        raw_value = (byte1 & 0xC0) >> 6
+        power_state = ZonePowerState(raw_value)
+
+        if power_state == ZonePowerState.UNKNOWN:
+            self._unknown_power_state_event.log(
+                "Unknown power state (%d) in Zone Status message", raw_value
+            )
+        else:
+            self._unknown_power_state_event.withdraw()
+
+        return power_state
 
     def _decode_spill_active(self, byte7: int) -> bool:
         return encoding.bit_to_bool(byte7, 1)
@@ -297,7 +310,7 @@ class ZoneStatusDecoder(
     def _decode_has_sensor(self, byte4: int) -> bool:
         return encoding.bit_to_bool(byte4, 7)
 
-    def _decode_temperature(self, has_sensor: bool, temp_raw: int) -> Optional[float]:  # noqa: FBT001
+    def _decode_temperature(self, has_sensor: bool, temp_raw: int) -> float | None:  # noqa: FBT001
         decoded_temperature = utils.decode_temperature(temp_raw & 0x07FF)
         if not has_sensor or decoded_temperature > _MAXIMUM_TEMPERATURE:
             return None
@@ -309,7 +322,7 @@ class ZoneStatusDecoder(
     def _decode_damper_percentage(self, b2: int) -> int:
         return b2 & 0x7F
 
-    def _decode_set_point(self, set_point_raw: int) -> Optional[float]:
+    def _decode_set_point(self, set_point_raw: int) -> float | None:
         if set_point_raw == _INVALID_SET_POINT:
             return None
         return utils.decode_set_point(set_point_raw)

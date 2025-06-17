@@ -8,7 +8,7 @@ import datetime
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 # fmt: off
 __all__ = [
@@ -104,7 +104,7 @@ class AcErrorInfo:
     """Error information for an Air-Conditioner."""
 
     code: int
-    description: Optional[str]
+    description: str | None
 
 
 class ZonePowerState(Enum):
@@ -165,7 +165,7 @@ class Zone(Protocol):
         """Set of Zone Power States supported by the zone."""
 
     @property
-    def power_state(self) -> ZonePowerState:
+    def power_state(self) -> ZonePowerState | None:
         """The current power state of the zone."""
 
     @property
@@ -184,7 +184,7 @@ class Zone(Protocol):
         """
 
     @property
-    def current_temperature(self) -> Optional[float]:
+    def current_temperature(self) -> float | None:
         """The current measured temperature of the zone.
 
         Returns:
@@ -193,7 +193,7 @@ class Zone(Protocol):
         """
 
     @property
-    def target_temperature(self) -> Optional[float]:
+    def target_temperature(self) -> float | None:
         """The current target temperature set-point of the zone.
 
         Returns:
@@ -270,7 +270,12 @@ class Zone(Protocol):
 
 
 class AirConditioner(Protocol):
-    """The interface for a single Air-Conditioner in an AirTouch system."""
+    """The interface for a single Air-Conditioner in an AirTouch system.
+
+    Properties return None if the state is unknown. This can occur as the
+    AirTouch evolves with new features and usually indicates that the protocol
+    has been updated.
+    """
 
     @property
     def ac_id(self) -> int:
@@ -293,15 +298,15 @@ class AirConditioner(Protocol):
         """Set of Fan Speeds supported by the air-conditioner."""
 
     @property
-    def power_state(self) -> AcPowerState:
+    def power_state(self) -> AcPowerState | None:
         """Current power state of the air-conditioner."""
 
     @property
-    def selected_mode(self) -> AcMode:
+    def selected_mode(self) -> AcMode | None:
         """Current selected mode of the air-conditioner."""
 
     @property
-    def active_mode(self) -> AcMode:
+    def active_mode(self) -> AcMode | None:
         """Current active mode of the air-conditioner.
 
         In most cases this will match the selected mode, but when Auto mode is
@@ -310,11 +315,11 @@ class AirConditioner(Protocol):
         """
 
     @property
-    def selected_fan_speed(self) -> AcFanSpeed:
+    def selected_fan_speed(self) -> AcFanSpeed | None:
         """Current selected fan speed of the air-conditioner."""
 
     @property
-    def active_fan_speed(self) -> AcFanSpeed:
+    def active_fan_speed(self) -> AcFanSpeed | None:
         """Current active fan speed of the air-conditioner.
 
         In most cases this will match the selected fan speed, but when
@@ -381,7 +386,7 @@ class AirConditioner(Protocol):
     def zones(self) -> Sequence[Zone]:
         """The set of AirTouch zones associated with this Air-Conditioner."""
 
-    def next_quick_timer(self, timer_type: AcTimerType) -> Optional[datetime.time]:
+    def next_quick_timer(self, timer_type: AcTimerType) -> datetime.time | None:
         """The next activation time for a quick timer.
 
         Returns:
@@ -392,7 +397,7 @@ class AirConditioner(Protocol):
         """
 
     @property
-    def error_info(self) -> Optional[AcErrorInfo]:
+    def error_info(self) -> AcErrorInfo | None:
         """Error information for the AC.
 
         Returns:

@@ -18,7 +18,7 @@ This message is a sub-message of the Extended Message.
 import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 from typing_extensions import override
 
@@ -41,7 +41,7 @@ class AcAbility:
     fan_speed_support: Mapping[AcFanSpeedControl, bool]
     min_set_point: int
     max_set_point: int
-    groups: Optional[set[int]]
+    groups: set[int] | None
     """The set of groups that are associated with this AC.
 
     Elements of the set will be in the range [0, MAX_GROUP_NUMBER].
@@ -240,7 +240,7 @@ class AcAbilityDecoder(
             ) = _STRUCT.unpack_from(buffer, offset=offset)
             offset += _STRUCT.size
 
-            groups: Optional[set[int]] = None
+            groups: set[int] | None = None
             if following_length == (
                 _FOLLOWING_LENGTH_BASE + _GROUP_DISPLAY_STRUCT.size
             ):

@@ -3,7 +3,7 @@
 import asyncio
 import socket
 from collections.abc import Callable, Coroutine, Sequence
-from typing import Any, Generic, Optional
+from typing import Any, Generic
 
 from typing_extensions import override
 
@@ -29,7 +29,7 @@ class AirTouchDiscoverer(Generic[comms.DiscoveryRequest_co, comms.TDiscoveryResp
         discovery_config: comms.DiscoveryConfig[
             comms.DiscoveryRequest_co, comms.TDiscoveryResponse
         ],
-        remote_host: Optional[str] = None,
+        remote_host: str | None = None,
     ) -> None:
         """Initialises the AirTouch Discoverer.
 

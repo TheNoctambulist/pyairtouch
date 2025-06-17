@@ -10,7 +10,7 @@ import logging
 from collections import deque
 from collections.abc import Awaitable, Callable, Coroutine, Iterable
 from dataclasses import dataclass
-from typing import Any, Generic, Optional, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar
 
 import pyairtouch.comms.log
 from pyairtouch import comms
@@ -156,8 +156,8 @@ class AirTouchSocket(Generic[comms.Hdr]):
 
         self._background_tasks: set[asyncio.Task[Any]] = set()
 
-        self._reader: Optional[asyncio.StreamReader] = None
-        self._writer: Optional[asyncio.StreamWriter] = None
+        self._reader: asyncio.StreamReader | None = None
+        self._writer: asyncio.StreamWriter | None = None
 
         self._message_queue: deque[_MessageQueueEntry[comms.Hdr]] = deque()
 
@@ -270,7 +270,7 @@ class AirTouchSocket(Generic[comms.Hdr]):
         self._message_subscribers.discard(subscriber)
 
     def _schedule(
-        self, coro: Coroutine[Any, Any, Any], delay: Optional[float] = None
+        self, coro: Coroutine[Any, Any, Any], delay: float | None = None
     ) -> None:
         """Schedule a co-routine to run in the background with an optional delay."""
         if delay:
@@ -368,7 +368,7 @@ class AirTouchSocket(Generic[comms.Hdr]):
 
     async def _read_one_message(
         self,
-    ) -> Optional[tuple[comms.Hdr, comms.Message]]:
+    ) -> tuple[comms.Hdr, comms.Message] | None:
         """Helper routine called by `_read()` to read and decode a single message.
 
         Returns the decoded header and message, or None if an error occurred

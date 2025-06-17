@@ -19,12 +19,13 @@ import logging
 import struct
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from typing_extensions import override
 
 from pyairtouch import comms
 from pyairtouch.at5.comms import utils, xC0_ctrl_status
-from pyairtouch.comms import encoding
+from pyairtouch.comms import encoding, log
 
 MESSAGE_ID = 0x23
 
@@ -39,6 +40,12 @@ class AcPowerState(enum.Enum):
     OFF_AWAY = 2
     ON_AWAY = 3
     SLEEP = 5
+    UNKNOWN = 15
+
+    @classmethod
+    def _missing_(cls, _: Any) -> "AcPowerState":  # noqa: ANN401
+        # The protocol reserves all other values for future use.
+        return AcPowerState.UNKNOWN
 
 
 class AcMode(enum.Enum):
@@ -51,6 +58,12 @@ class AcMode(enum.Enum):
     COOL = 4
     AUTO_HEAT = 8
     AUTO_COOL = 9
+    UNKNOWN = 15
+
+    @classmethod
+    def _missing_(cls, _: Any) -> "AcMode":  # noqa: ANN401
+        # The protocol reserves all other values for future use.
+        return AcMode.UNKNOWN
 
 
 class AcFanSpeed(enum.Enum):
@@ -69,6 +82,12 @@ class AcFanSpeed(enum.Enum):
     INTELLIGENT_AUTO_HIGH = 12
     INTELLIGENT_AUTO_POWERFUL = 13
     INTELLIGENT_AUTO_TURBO = 14
+    UNKNOWN = 15
+
+    @classmethod
+    def _missing_(cls, _: Any) -> "AcFanSpeed":  # noqa: ANN401
+        # The protocol reserves all other values for future use.
+        return AcFanSpeed.UNKNOWN
 
 
 @dataclass
@@ -235,7 +254,13 @@ class AcStatusDecoder(
         """Initialise the AcStatusDecoder."""
         # Avoid repeated logging of message length mismatches if the console has
         # an upgraded protocol.
-        self._mismatch_logged = False
+        self._length_mismatch_event = log.LogEvent(_LOGGER, logging.INFO)
+
+        # Log warnings if the protocol has upgraded in a way that impacts the
+        # usability of the API
+        self._unknown_power_state_event = log.LogEvent(_LOGGER, logging.WARNING)
+        self._unknown_mode_event = log.LogEvent(_LOGGER, logging.WARNING)
+        self._unknown_fan_speed_event = log.LogEvent(_LOGGER, logging.WARNING)
 
     @override
     def decode(
@@ -255,18 +280,16 @@ class AcStatusDecoder(
                 f"AC Status Data size ({_STRUCT.size}))"
             )
 
-        if (
-            header.repeat_length != _STRUCT.size
-            and header.repeat_length != (_STRUCT.size + _PADDING_BYTES_SIZE)
-            and not self._mismatch_logged
+        if header.repeat_length not in (
+            _STRUCT.size,
+            _STRUCT.size + _PADDING_BYTES_SIZE,
         ):
-            _LOGGER.info(
+            self._length_mismatch_event.log(
                 "Header repeat_length (%d) != AC Status Data size (%d). "
                 "Ignoring extra bytes",
                 header.repeat_length,
                 _STRUCT.size + _PADDING_BYTES_SIZE,
             )
-            self._mismatch_logged = True
 
         acs: list[AcStatusData] = []
         for _ in range(header.repeat_count):
@@ -305,14 +328,43 @@ class AcStatusDecoder(
         return byte1 & 0x0F
 
     def _decode_power_state(self, byte1: int) -> AcPowerState:
-        return AcPowerState((byte1 & 0xF0) >> 4)
+        raw_value = (byte1 & 0xF0) >> 4
+        power_state = AcPowerState(raw_value)
+
+        if power_state == AcPowerState.UNKNOWN:
+            self._unknown_power_state_event.log(
+                "Unknown power state (%d) in AC Status Message", raw_value
+            )
+        else:
+            self._unknown_power_state_event.withdraw()
+
+        return power_state
 
     def _decode_mode(self, byte2: int) -> AcMode:
-        return AcMode((byte2 & 0xF0) >> 4)
+        raw_value = (byte2 & 0xF0) >> 4
+        mode = AcMode(raw_value)
+
+        if mode == AcMode.UNKNOWN:
+            self._unknown_mode_event.log(
+                "Unknown mode (%d) in AC Status Message", raw_value
+            )
+        else:
+            self._unknown_mode_event.withdraw()
+
+        return mode
 
     def _decode_fan_speed(self, byte2: int) -> AcFanSpeed:
-        fan_speed_raw = byte2 & 0x0F
-        return AcFanSpeed(fan_speed_raw)
+        raw_value = byte2 & 0x0F
+        fan_speed = AcFanSpeed(raw_value)
+
+        if fan_speed == AcFanSpeed.UNKNOWN:
+            self._unknown_fan_speed_event.log(
+                "Unknown fan speed (%d) in AC Status Message", raw_value
+            )
+        else:
+            self._unknown_fan_speed_event.withdraw()
+
+        return fan_speed
 
     def _decode_turbo(self, byte4: int) -> bool:
         return encoding.bit_to_bool(byte4, 3)

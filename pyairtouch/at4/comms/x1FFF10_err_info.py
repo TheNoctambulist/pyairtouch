@@ -11,7 +11,6 @@ This message is a sub-message of the Extended Message.
 """  # noqa: N999
 
 from dataclasses import dataclass
-from typing import Optional
 
 from typing_extensions import override
 
@@ -29,7 +28,7 @@ class AcErrorInformationMessage(comms.Message):
 
     ac_number: int
     """The AC to which the error applies."""
-    error_info: Optional[str]
+    error_info: str | None
     """The error information, or None if there is no error for this AC."""
 
     @override

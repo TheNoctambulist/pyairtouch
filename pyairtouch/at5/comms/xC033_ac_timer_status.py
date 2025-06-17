@@ -25,7 +25,7 @@ from typing_extensions import override
 
 from pyairtouch import comms
 from pyairtouch.at5.comms import xC0_ctrl_status
-from pyairtouch.comms import encoding
+from pyairtouch.comms import encoding, log
 
 MESSAGE_ID = 0x33
 
@@ -153,7 +153,7 @@ class AcTimerStatusDecoder(
         """Initialise the ACTimerStatusDecoder."""
         # Avoid repeated logging of message length mismatches if the console has
         # an upgraded protocol.
-        self._mismatch_logged = False
+        self._length_mismatch_event = log.LogEvent(_LOGGER, logging.INFO)
 
     @override
     def decode(
@@ -173,17 +173,13 @@ class AcTimerStatusDecoder(
                 f"AC Timer Status Data size ({_TIMER_STATUS_REPEAT_SIZE})"
             )
 
-        if (
-            header.repeat_length != _TIMER_STATUS_REPEAT_SIZE
-            and not self._mismatch_logged
-        ):
-            _LOGGER.info(
+        if header.repeat_length != _TIMER_STATUS_REPEAT_SIZE:
+            self._length_mismatch_event.log(
                 "Header repeat_length (%d) != AC Timer Status Data size (%d). "
                 "Ignoring extra bytes",
                 header.repeat_length,
                 _TIMER_STATUS_REPEAT_SIZE,
             )
-            self._mismatch_logged = True
 
         acs: list[AcTimerStatusData] = []
         for _ in range(header.repeat_count):

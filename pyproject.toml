@@ -36,7 +36,6 @@ ignore = [
     "EM102",  # f-string-in-exception
     "RUF022", # allow unsorted __all__
     "TRY003", # Exception messages are useful.
-    "UP007",  # typing.Optional is useful. See https://github.com/astral-sh/ruff/issues/4858
 
     # Compatibility/redundancy with Ruff Formatter
     "W191",

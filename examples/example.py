@@ -7,6 +7,7 @@ To run the example use the command `pdm run example`."""
 import argparse
 import asyncio
 import contextlib
+import logging
 import sys
 
 import pyairtouch
@@ -35,6 +36,13 @@ def parse_args() -> argparse.Namespace:
         default=300.0,
         required=False,
     )
+    p.add_argument(
+        "--debug",
+        help="Enable debug logging.",
+        action="store_true",
+        default=False,
+        required=False,
+    )
     return p.parse_args()
 
 
@@ -55,15 +63,20 @@ async def _monitor_airtouch(airtouch: pyairtouch.AirTouch, duration: float) -> N
         msg(f"{_airtouch_id(airtouch)} AC {ac_id} status updated")
         aircon = airtouch.air_conditioners[ac_id]
         msg(
-            f"  AC Status  : {aircon.power_state.name} "
-            f"{aircon.active_mode.name} {aircon.active_fan_speed.name} "
+            f"  AC Status  : "
+            f"{aircon.power_state.name if aircon.power_state else 'Unknown'} "
+            f"{aircon.active_mode.name if aircon.active_mode else 'Unknown'} "
+            f"{aircon.active_fan_speed.name if aircon.active_fan_speed else 'Unknown'} "
+            f"off-timer={aircon.next_quick_timer(pyairtouch.AcTimerType.OFF_TIMER)} "
+            f"on-timer={aircon.next_quick_timer(pyairtouch.AcTimerType.ON_TIMER)} "
             f"temp={aircon.current_temperature:.1f} "
             f"set_point={aircon.target_temperature:.1f}"
         )
 
         for zone in aircon.zones:
             msg(
-                f"  Zone Status: {zone.name:10} {zone.power_state.name:3}  "
+                f"  Zone Status: {zone.name:10} "
+                f"{zone.power_state.name if zone.power_state else 'Unknown':3}  "
                 f"temp={zone.current_temperature:.1f} "
                 f"set_point={zone.target_temperature:.1f} "
                 f"damper={zone.current_damper_percentage}"
@@ -107,5 +120,10 @@ async def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     args = parse_args()
+
+    # Turn on logging
+    level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(stream=sys.stderr, level=level)
+
     with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(main(args))

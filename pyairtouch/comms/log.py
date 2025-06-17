@@ -42,3 +42,36 @@ class CommsLogger(_LoggerAdapter):
 def getLogger(name: str | None = None) -> CommsLogger:  # noqa: N802 name as per logging module
     """Convenience constructor for a CommsLogger."""
     return CommsLogger(logging.getLogger(name))
+
+
+class LogEvent:
+    """A latching log event that will log only once until the event is withdrawn."""
+
+    def __init__(self, logger: logging.Logger, log_level: int) -> None:
+        """Initialise the LogEvent."""
+        self.logger = logger
+        self.log_level = log_level
+        self._event_logged = False
+
+    def log(self, msg: Any, *args: Any) -> None:  # noqa: ANN401
+        """Log the event.
+
+        If this is the first occurence of the event it will be logged at the
+        defined level, otherwise logging will be at debug level only.
+        """
+        level = logging.DEBUG
+        if not self._event_logged:
+            level = self.log_level
+            self._event_logged = True
+
+        self.logger.log(level, msg, *args)
+
+    def withdraw(self, msg: Any = None, *args: Any) -> None:  # noqa: ANN401
+        """Mark this event as withdrawn.
+
+        An optional message can be provided to highlight in the log that a
+        recurring event is no longer occurring.
+        """
+        if self._event_logged and msg is not None:
+            self.logger.log(self.log_level, msg, *args)
+        self._event_logged = False
