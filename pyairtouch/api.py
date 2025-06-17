@@ -43,11 +43,11 @@ class AcPowerState(Enum):
     """
 
     OFF = auto()
-    ON = auto()
     OFF_AWAY = auto()
+    OFF_FORCED = auto()
+    ON = auto()
     ON_AWAY = auto()
     SLEEP = auto()
-    OFF_FORCED = auto()
 
 
 class AcPowerControl(Enum):
