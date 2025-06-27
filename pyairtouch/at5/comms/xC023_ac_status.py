@@ -73,7 +73,10 @@ class AcMode(enum.Enum):
 
 
 class AcFanSpeed(enum.Enum):
-    """Current fan speed of the air-conditioner."""
+    """Current fan speed of the air-conditioner.
+
+    INTELLIGENT_AUTO_AUTO is not documented, but has been observed in the wild.
+    """
 
     AUTO = 0
     QUIET = 1
@@ -82,6 +85,7 @@ class AcFanSpeed(enum.Enum):
     HIGH = 4
     POWERFUL = 5
     TURBO = 6
+    INTELLIGENT_AUTO_AUTO = 8
     INTELLIGENT_AUTO_QUIET = 9
     INTELLIGENT_AUTO_LOW = 10
     INTELLIGENT_AUTO_MEDIUM = 11

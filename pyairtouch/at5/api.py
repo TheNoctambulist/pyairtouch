@@ -290,6 +290,9 @@ _AC_SELECTED_FAN_SPEED_MAPPING = {
     ac_status_msg.AcFanSpeed.POWERFUL: pyairtouch.api.AcFanSpeed.POWERFUL,
     ac_status_msg.AcFanSpeed.TURBO: pyairtouch.api.AcFanSpeed.TURBO,
     # All Intelligent Auto fan speeds indicate Intelligent Auto was selected.
+    ac_status_msg.AcFanSpeed.INTELLIGENT_AUTO_AUTO: (
+        pyairtouch.api.AcFanSpeed.INTELLIGENT_AUTO
+    ),
     ac_status_msg.AcFanSpeed.INTELLIGENT_AUTO_QUIET: (
         pyairtouch.api.AcFanSpeed.INTELLIGENT_AUTO
     ),
@@ -317,6 +320,7 @@ _AC_ACTIVE_FAN_SPEED_MAPPING = {
     ac_status_msg.AcFanSpeed.HIGH: pyairtouch.api.AcFanSpeed.HIGH,
     ac_status_msg.AcFanSpeed.POWERFUL: pyairtouch.api.AcFanSpeed.POWERFUL,
     ac_status_msg.AcFanSpeed.TURBO: pyairtouch.api.AcFanSpeed.TURBO,
+    ac_status_msg.AcFanSpeed.INTELLIGENT_AUTO_AUTO: (pyairtouch.api.AcFanSpeed.AUTO),
     ac_status_msg.AcFanSpeed.INTELLIGENT_AUTO_QUIET: (pyairtouch.api.AcFanSpeed.QUIET),
     ac_status_msg.AcFanSpeed.INTELLIGENT_AUTO_LOW: (pyairtouch.api.AcFanSpeed.LOW),
     ac_status_msg.AcFanSpeed.INTELLIGENT_AUTO_MEDIUM: (
@@ -326,9 +330,7 @@ _AC_ACTIVE_FAN_SPEED_MAPPING = {
     ac_status_msg.AcFanSpeed.INTELLIGENT_AUTO_POWERFUL: (
         pyairtouch.api.AcFanSpeed.POWERFUL
     ),
-    ac_status_msg.AcFanSpeed.INTELLIGENT_AUTO_TURBO: (
-        pyairtouch.api.AcFanSpeed.INTELLIGENT_AUTO
-    ),
+    ac_status_msg.AcFanSpeed.INTELLIGENT_AUTO_TURBO: (pyairtouch.api.AcFanSpeed.TURBO),
 }
 _API_FAN_SPEED_CONTROL_MAPPING = {
     pyairtouch.api.AcFanSpeed.AUTO: ac_ctrl_msg.AcFanSpeedControl.AUTO,
