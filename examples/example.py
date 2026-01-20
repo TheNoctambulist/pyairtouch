@@ -50,6 +50,12 @@ def _airtouch_id(airtouch: pyairtouch.AirTouch) -> str:
     return f"{airtouch.name} ({airtouch.host})"
 
 
+def _format_temp(temperature: float | None) -> str:
+    if temperature:
+        return f"{temperature:2.1f}"
+    return "--.-"
+
+
 async def _monitor_airtouch(airtouch: pyairtouch.AirTouch, duration: float) -> None:
     """Monitor an AirTouch for a fixed duration."""
     success = await airtouch.init()
@@ -69,16 +75,16 @@ async def _monitor_airtouch(airtouch: pyairtouch.AirTouch, duration: float) -> N
             f"{aircon.active_fan_speed.name if aircon.active_fan_speed else 'Unknown'} "
             f"off-timer={aircon.next_quick_timer(pyairtouch.AcTimerType.OFF_TIMER)} "
             f"on-timer={aircon.next_quick_timer(pyairtouch.AcTimerType.ON_TIMER)} "
-            f"temp={aircon.current_temperature:.1f} "
-            f"set_point={aircon.target_temperature:.1f}"
+            f"temp={_format_temp(aircon.current_temperature)} "
+            f"set_point={_format_temp(aircon.target_temperature)}"
         )
 
         for zone in aircon.zones:
             msg(
                 f"  Zone Status: {zone.name:10} "
                 f"{zone.power_state.name if zone.power_state else 'Unknown':3}  "
-                f"temp={zone.current_temperature:.1f} "
-                f"set_point={zone.target_temperature:.1f} "
+                f"temp={_format_temp(zone.current_temperature)} "
+                f"set_point={_format_temp(zone.target_temperature)} "
                 f"damper={zone.current_damper_percentage}"
             )
         msg("")  # Blank line to separate from subsequent logs.
