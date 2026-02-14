@@ -114,12 +114,17 @@ def _connect_airtouch_5(
     )
 
 
-async def discover(remote_host: str | None = None) -> list[pyairtouch.api.AirTouch]:
+async def discover(
+    remote_host: str | None = None, local_address: str | None = None
+) -> list[pyairtouch.api.AirTouch]:
     """Automatically discover and connect to any AirTouch devices on the network.
 
     Args:
         remote_host: An optional known AirTouch host. This can be used to
             perform discovery in networks that don't support UDP broadcast.
+        local_address: Optional local address to bind the discovery socket.
+            If not specified, discovery requests will be broadcast on all
+            interfaces.
 
     Returns:
         A list of discovered AirTouch instances.
@@ -128,7 +133,7 @@ async def discover(remote_host: str | None = None) -> list[pyairtouch.api.AirTou
     """
     airtouches: list[pyairtouch.api.AirTouch] = []
 
-    responses = await _search(remote_host)
+    responses = await _search(remote_host=remote_host, local_address=local_address)
 
     for response in responses:
         match response:
@@ -166,7 +171,9 @@ _AnyDiscoveryResponse = (
 _C = pyairtouch.comms.DiscoveryConfig[_AnyDiscoveryRequest, _AnyDiscoveryResponse]
 
 
-async def _search(remote_host: str | None = None) -> list[comms.DiscoveryResponse]:
+async def _search(
+    remote_host: str | None = None, local_address: str | None = None
+) -> list[comms.DiscoveryResponse]:
     """Discover any AirTouch devices on the network.
 
     Returns a list containing details of any discovered AirTouch device.
@@ -175,6 +182,7 @@ async def _search(remote_host: str | None = None) -> list[comms.DiscoveryRespons
         pyairtouch.comms.discovery.AirTouchDiscoverer(
             discovery_config=cast("_C", config),
             remote_host=remote_host,
+            local_address=local_address,
         )
         for config in [at4_discovery.CONFIG, at5_discovery.CONFIG]
     ]

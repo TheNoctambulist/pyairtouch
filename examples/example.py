@@ -29,6 +29,13 @@ def parse_args() -> argparse.Namespace:
         type=str,
     )
     p.add_argument(
+        "--local-address",
+        dest="local_address",
+        help="Bind to a specific local address for discovery. "
+        "If not specified, discovery will be broadcast on all interfaces.",
+        type=str,
+    )
+    p.add_argument(
         "--duration",
         help="Runtime for the example program in seconds. "
         "Defaults to 300 seconds (5 minutes)",
@@ -109,7 +116,9 @@ async def main(args: argparse.Namespace) -> None:
     else:
         print("Searching for all AirTouch systems on the network")
 
-    discovered_airtouches = await pyairtouch.discover(args.airtouch_host)
+    discovered_airtouches = await pyairtouch.discover(
+        remote_host=args.airtouch_host, local_address=args.local_address
+    )
     if not discovered_airtouches:
         print("No AirTouch discovered")
         return

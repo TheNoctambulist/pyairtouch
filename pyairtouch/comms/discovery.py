@@ -1,10 +1,12 @@
 """AirTouch discovery communication."""
 
 import asyncio
+import ipaddress
 import socket
 from collections.abc import Callable, Coroutine, Sequence
 from typing import Any, Generic
 
+import ifaddr
 from typing_extensions import override
 
 import pyairtouch.comms.log
@@ -30,6 +32,7 @@ class AirTouchDiscoverer(Generic[comms.DiscoveryRequest_co, comms.TDiscoveryResp
             comms.DiscoveryRequest_co, comms.TDiscoveryResponse
         ],
         remote_host: str | None = None,
+        local_address: str | None = None,
     ) -> None:
         """Initialises the AirTouch Discoverer.
 
@@ -37,11 +40,35 @@ class AirTouchDiscoverer(Generic[comms.DiscoveryRequest_co, comms.TDiscoveryResp
             discovery_config: discovery configuration including which messages to send.
             remote_host: optional remote host to unicast discovery messages. If
                 not provided discovery messages will be broadcast.
+            local_address: optional local address to bind the discovery
+                socket. If not provided, the discovery requests will be
+                broadcast on all network interfaces.
         """
         self._discovery_config = discovery_config
-        self._remote_host: str = "255.255.255.255"
+        self._local_address = local_address
+        self._remote_hosts: list[ipaddress.IPv4Address] = []
         if remote_host:
-            self._remote_host = remote_host
+            self._remote_hosts.append(ipaddress.IPv4Address(remote_host))
+        elif local_address:
+            # If the socket is bound to a single local interface, sending to
+            # the broadcast address will always go out on the correct
+            # interface.
+            self._remote_hosts.append(ipaddress.IPv4Address("255.255.255.255"))
+        else:
+            # On Linux 255.255.255.255 won't broadcast on all interfaces,
+            # so instead build a list of broadcast addresses for all detected
+            # interfaces.
+            for adapter in ifaddr.get_adapters():
+                broadcast_addresses = [
+                    n.network.broadcast_address
+                    for n in (
+                        ipaddress.IPv4Interface((ip.ip, ip.network_prefix))
+                        for ip in adapter.ips
+                        if ip.is_IPv4
+                    )
+                    if not n.is_loopback
+                ]
+                self._remote_hosts.extend(broadcast_addresses)
 
     async def search(self) -> Sequence[comms.TDiscoveryResponse]:
         """Initiate a search for AirTouch consoles on the network.
@@ -55,17 +82,19 @@ class AirTouchDiscoverer(Generic[comms.DiscoveryRequest_co, comms.TDiscoveryResp
         transport = await self._open_socket(responses)
 
         request = self._discovery_config.request_factory()
-        remote_address = (self._remote_host, self._discovery_config.remote_port)
 
         count = 0
         while not responses and count < _DISCOVERY_MAX_REQUESTS:
             count += 1
-            _LOGGER.debug(
-                "Sending discovery request (%d): %s",
-                count,
-                request.data,
-            )
-            transport.sendto(request.data, remote_address)
+            for remote_host in self._remote_hosts:
+                remote_address = (str(remote_host), self._discovery_config.remote_port)
+                _LOGGER.debug(
+                    "Sending discovery request to %s (%d): %s",
+                    str(remote_host),
+                    count,
+                    request.data,
+                )
+                transport.sendto(request.data, remote_address)
             # We always wait for the full interval instead of exiting after the
             # first response to allow time for multiple AirTouch consoles to reply.
             await asyncio.sleep(_DISCOVERY_REQUEST_INTERVAL)
@@ -87,7 +116,11 @@ class AirTouchDiscoverer(Generic[comms.DiscoveryRequest_co, comms.TDiscoveryResp
         )
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-        local_address = ("0.0.0.0", self._discovery_config.local_port)  # noqa: S104 (binding to all interfaces is intentional)
+        local_address = (
+            self._local_address or "0.0.0.0",  # noqa: S104 (binding to all interfaces is intentional)
+            self._discovery_config.local_port,
+        )
+
         sock.bind(local_address)
 
         async def on_discovery_reponse(response: comms.TDiscoveryResponse) -> None:
