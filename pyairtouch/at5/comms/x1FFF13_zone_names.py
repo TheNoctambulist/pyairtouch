@@ -135,8 +135,14 @@ class ZoneNamesDecoder(
             if name_end > header.message_length:
                 raise comms.DecodeError("Zone name exceeds message length")
 
+            # Decode zone names ignoring errors.
+            # The AirTouch console does not send valid UTF-8 unicode sequences
+            # for emoji in zone names and this causes errors if they are not
+            # ignored.
+            # The emoji also break the official Android AirTouch 5 app!
             zone_name = buffer[name_start:name_end].decode(
-                encoding=encoding.STRING_ENCODING
+                encoding=encoding.STRING_ENCODING,
+                errors="ignore",
             )
 
             zone_names[zone_number] = zone_name
