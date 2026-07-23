@@ -25,10 +25,12 @@ class Header(Protocol):
     @property
     def message_id(self) -> int:
         """ID of the wrapped message."""
+        ...
 
     @property
     def message_length(self) -> int:
         """Length of the message (excluding header) in bytes."""
+        ...
 
 
 Hdr = TypeVar("Hdr", bound=Header)
@@ -42,6 +44,7 @@ class Message(Protocol):
     @property
     def message_id(self) -> int:
         """The message's ID."""
+        ...
 
 
 Msg = TypeVar("Msg", bound=Message)
@@ -69,6 +72,7 @@ class HeaderEncoder(Protocol[Hdr_contra]):
 
     def encode(self, header: Hdr_contra) -> HeaderEncodeResult:
         """Encodes the header into a sequence of bytes."""
+        ...
 
 
 @dataclass
@@ -106,12 +110,14 @@ class HeaderDecoder(Protocol[Hdr_co]):
     @property
     def header_length(self) -> int:
         """Returns the length of the header in bytes."""
+        ...
 
     def decode(self, buffer: bytes | bytearray) -> HeaderDecodeResult[Hdr_co]:
         """Decodes the header from the buffer.
 
         Returns the decoded header and any remaining bytes in the buffer.
         """
+        ...
 
 
 class MessageEncoder(Protocol[Hdr_contra, Msg_contra]):
@@ -119,9 +125,11 @@ class MessageEncoder(Protocol[Hdr_contra, Msg_contra]):
 
     def size(self, message: Msg_contra) -> int:
         """Returns the size of the message in bytes."""
+        ...
 
     def encode(self, header: Hdr_contra, message: Msg_contra) -> bytes:
         """Encodes the specified message into a sequence of bytes."""
+        ...
 
 
 @dataclass
@@ -165,6 +173,7 @@ class MessageDecoder(Protocol[Hdr_contra, Msg_co]):
             DecodeError if any errors occurred decoding the message.
             ValueError if there are not enough bytes in the buffer.
         """
+        ...
 
 
 class HeaderFactory(Protocol[Hdr_co]):
@@ -172,6 +181,7 @@ class HeaderFactory(Protocol[Hdr_co]):
 
     def create_from_message(self, message: Message, message_length: int) -> Hdr_co:
         """Create a header for the specified message."""
+        ...
 
 
 @dataclass
@@ -184,8 +194,8 @@ class UnsupportedMessage(Message):
     unsupported_id: int
     raw_data: bytes
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return self.unsupported_id
 
@@ -218,12 +228,15 @@ class ChecksumCalculator(Protocol):
     @property
     def checksum_length(self) -> int:
         """Returns the number of bytes in a checksum for this calculator."""
+        ...
 
     def calculate(self, buffer: bytes | bytearray) -> bytes:
         """Calculates the checksum for the specified buffer."""
+        ...
 
     def validate(self, buffer: bytes | bytearray, checksum: bytes | bytearray) -> bool:
         """Validates the specified buffer against the provided checksum."""
+        ...
 
 
 class MessageRegistry(Generic[Hdr]):
@@ -305,6 +318,7 @@ class DiscoveryRequest(Protocol):
     @property
     def data(self) -> bytes:
         """The encoded bytes of the discovery request."""
+        ...
 
 
 DiscoveryRequest_co = TypeVar(
@@ -318,10 +332,12 @@ class DiscoveryResponse(Protocol):
     @property
     def airtouch_id(self) -> str:
         """The ID of the discovered AirTouch system."""
+        ...
 
     @property
     def host(self) -> str:
         """The host name or IP address of the discovered AirTouch system."""
+        ...
 
 
 TDiscoveryResponse = TypeVar("TDiscoveryResponse", bound=DiscoveryResponse)
@@ -342,6 +358,7 @@ class DiscoveryDecoder(Protocol, Generic[DiscoveryRequest_co, TDiscoveryResponse
         Args:
             buffer: all bytes from the received datagram.
         """
+        ...
 
     def decode(
         self, buffer: bytes | bytearray
@@ -351,6 +368,7 @@ class DiscoveryDecoder(Protocol, Generic[DiscoveryRequest_co, TDiscoveryResponse
         Args:
             buffer: all bytes from the received datagram.
         """
+        ...
 
 
 @dataclass(frozen=True)

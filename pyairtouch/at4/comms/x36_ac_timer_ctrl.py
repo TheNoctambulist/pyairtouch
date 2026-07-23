@@ -30,8 +30,8 @@ class AcTimerControlMessage(x37_ac_timer_status.AcTimerStatusMessage):
     so that is extended here to allow re-use of encoding and decoding logic.
     """
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 

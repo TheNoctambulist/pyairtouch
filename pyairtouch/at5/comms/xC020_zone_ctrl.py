@@ -30,7 +30,8 @@ class ZonePowerControl(enum.Enum):
     UNCHANGED = 0
 
     @classmethod
-    def _missing_(cls, _: Any) -> "ZonePowerControl":  # noqa: ANN401
+    @override
+    def _missing_(cls, value: Any) -> "ZonePowerControl":
         return ZonePowerControl.UNCHANGED
 
 
@@ -80,8 +81,8 @@ class ZoneControlMessage(comms.Message):
 
     zone_control: Sequence[ZoneControlData]
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -112,7 +113,9 @@ class ZoneControlEncoder(xC0_ctrl_status.ControlStatusSubEncoder[ZoneControlMess
 
     @override
     def encode(
-        self, _: xC0_ctrl_status.ControlStatusSubHeader, message: ZoneControlMessage
+        self,
+        header: xC0_ctrl_status.ControlStatusSubHeader,
+        message: ZoneControlMessage,
     ) -> bytes:
         buffer = bytearray()
         for zone in message.zone_control:

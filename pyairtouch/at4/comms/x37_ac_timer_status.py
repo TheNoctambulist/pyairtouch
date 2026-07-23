@@ -62,8 +62,8 @@ class AcTimerStatusMessage(comms.Message):
     for invalid air-conditioners IDs. IDs should be cross checked before
     processing the values."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -72,8 +72,8 @@ class AcTimerStatusMessage(comms.Message):
 class AcTimerStatusRequest(comms.Message):
     """Request for AC Timer Status."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 

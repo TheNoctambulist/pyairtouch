@@ -32,7 +32,8 @@ class AcPowerControl(enum.Enum):
     UNCHANGED = 0  # Zero as per the example messages
 
     @classmethod
-    def _missing_(cls, _: Any) -> "AcPowerControl":  # noqa: ANN401
+    @override
+    def _missing_(cls, value: Any) -> "AcPowerControl":
         # All "other" values are equivalent to no change
         return AcPowerControl.UNCHANGED
 
@@ -48,7 +49,8 @@ class AcModeControl(enum.Enum):
     UNCHANGED = 0xFF  # 'F' as per the example messages
 
     @classmethod
-    def _missing_(cls, _: Any) -> "AcModeControl":  # noqa: ANN401
+    @override
+    def _missing_(cls, value: Any) -> "AcModeControl":
         # All "other" values are equivalent to no change
         return AcModeControl.UNCHANGED
 
@@ -67,7 +69,8 @@ class AcFanSpeedControl(enum.Enum):
     UNCHANGED = 0xFF
 
     @classmethod
-    def _missing_(cls, _: Any) -> "AcFanSpeedControl":  # noqa: ANN401
+    @override
+    def _missing_(cls, value: Any) -> "AcFanSpeedControl":
         # All "other" values are equivalent to no change
         return AcFanSpeedControl.UNCHANGED
 
@@ -89,8 +92,8 @@ class AcControlMessage(comms.Message):
 
     ac_control: Sequence[AcControlData]
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -120,7 +123,7 @@ class AcControlEncoder(xC0_ctrl_status.ControlStatusSubEncoder[AcControlMessage]
 
     @override
     def encode(
-        self, _: xC0_ctrl_status.ControlStatusSubHeader, message: AcControlMessage
+        self, header: xC0_ctrl_status.ControlStatusSubHeader, message: AcControlMessage
     ) -> bytes:
         buffer = bytearray()
         for control in message.ac_control:

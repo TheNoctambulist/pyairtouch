@@ -160,26 +160,32 @@ class Zone(Protocol):
 
         Zone IDs are unique across an AirTouch instance.
         """
+        ...
 
     @property
     def name(self) -> str:
         """The display name of the zone as configured in the AirTouch system."""
+        ...
 
     @property
     def supported_power_states(self) -> Sequence[ZonePowerState]:
         """Set of Zone Power States supported by the zone."""
+        ...
 
     @property
     def power_state(self) -> ZonePowerState | None:
         """The current power state of the zone."""
+        ...
 
     @property
     def control_method(self) -> ZoneControlMethod:
         """The current control method of the zone."""
+        ...
 
     @property
     def has_temp_sensor(self) -> bool:
         """Whether this zone has a temperature sensor."""
+        ...
 
     @property
     def sensor_battery_status(self) -> SensorBatteryStatus:
@@ -187,6 +193,7 @@ class Zone(Protocol):
 
         If the zone doesn't have a temperature sensor, NORMAL is returned.
         """
+        ...
 
     @property
     def current_temperature(self) -> float | None:
@@ -196,6 +203,7 @@ class Zone(Protocol):
             The current measured temperature of this zone or None if the zone
             doesn't have a temperature sensor.
         """
+        ...
 
     @property
     def target_temperature(self) -> float | None:
@@ -206,6 +214,7 @@ class Zone(Protocol):
             None if the zone doesn't have a sensor and no target temperature is
             defined.
         """
+        ...
 
     @property
     def target_temperature_resolution(self) -> float:
@@ -215,6 +224,7 @@ class Zone(Protocol):
         resolution. When setting a new target temperature, the requested value
         will be rounded to this resolution.
         """
+        ...
 
     @property
     def current_damper_percentage(self) -> int:
@@ -227,10 +237,12 @@ class Zone(Protocol):
         Returns:
             The current damper opening percentage as a integer in the range [0, 100].
         """
+        ...
 
     @property
     def spill_active(self) -> bool:
         """Whether this zone is currently acting as a spill zone."""
+        ...
 
     async def set_power(self, power_control: ZonePowerState) -> None:
         """Set a new power state for the zone.
@@ -238,6 +250,7 @@ class Zone(Protocol):
         Raises:
             ValueError: If the zone does not support the requested power state.
         """
+        ...
 
     async def set_target_temperature(self, temperature: float) -> None:
         """Set a new target temperature for the zone.
@@ -249,6 +262,7 @@ class Zone(Protocol):
         Raises:
             ValueError: If the zone does not have a temperature sensor.
         """
+        ...
 
     async def set_damper_percentage(self, open_percentage: int) -> None:
         """Set the zone to a specific damper percentage.
@@ -260,18 +274,21 @@ class Zone(Protocol):
         Args:
             open_percentage: The requested damper opening in the range [0, 100].
         """
+        ...
 
     def subscribe(self, subscriber: UpdateSubscriber) -> None:
         """Subscribe to be notified of updates to the zone.
 
         Has no effect if the subscriber is already subscribed.
         """
+        ...
 
     def unsubscribe(self, subscriber: UpdateSubscriber) -> None:
         """Unsubscribe from receiving notifications of updates to the zone.
 
         Has no effect if the subscriber is not subscribed.
         """
+        ...
 
 
 class AirConditioner(Protocol):
@@ -285,30 +302,37 @@ class AirConditioner(Protocol):
     @property
     def ac_id(self) -> int:
         """The ID of the air-conditioner."""
+        ...
 
     @property
     def name(self) -> str:
         """Display name of the air-conditioner as configured in the AirTouch system."""
+        ...
 
     @property
     def supported_power_controls(self) -> Sequence[AcPowerControl]:
         """Set of AC Power Controls supported by the air-conditioner."""
+        ...
 
     @property
     def supported_modes(self) -> Sequence[AcMode]:
         """Set of AC Modes supported by the air-conditioner."""
+        ...
 
     @property
     def supported_fan_speeds(self) -> Sequence[AcFanSpeed]:
         """Set of Fan Speeds supported by the air-conditioner."""
+        ...
 
     @property
     def power_state(self) -> AcPowerState | None:
         """Current power state of the air-conditioner."""
+        ...
 
     @property
     def selected_mode(self) -> AcMode | None:
         """Current selected mode of the air-conditioner."""
+        ...
 
     @property
     def active_mode(self) -> AcMode | None:
@@ -318,10 +342,12 @@ class AirConditioner(Protocol):
         selected this propeerty can identify whether the air-conditioner is
         currently heating or cooling.
         """
+        ...
 
     @property
     def selected_fan_speed(self) -> AcFanSpeed | None:
         """Current selected fan speed of the air-conditioner."""
+        ...
 
     @property
     def active_fan_speed(self) -> AcFanSpeed | None:
@@ -331,6 +357,7 @@ class AirConditioner(Protocol):
         Intelligent Auto is selected this property can identify which underlying
         fan speed has been automatically selected.
         """
+        ...
 
     @property
     def current_temperature(self) -> float:
@@ -339,6 +366,7 @@ class AirConditioner(Protocol):
         Returns:
             The current temperature in degrees Celsius.
         """
+        ...
 
     @property
     def target_temperature(self) -> float:
@@ -347,6 +375,7 @@ class AirConditioner(Protocol):
         Returns:
             The current target temperature in degrees Celsius.
         """
+        ...
 
     @property
     def target_temperature_resolution(self) -> float:
@@ -356,6 +385,7 @@ class AirConditioner(Protocol):
         resolution. When setting a new target temperature, the requested value
         will be rounded to this resolution.
         """
+        ...
 
     @property
     def min_target_temperature(self) -> float:
@@ -369,6 +399,7 @@ class AirConditioner(Protocol):
         Returns:
             The minimum target temperature in degrees Celsius.
         """
+        ...
 
     @property
     def max_target_temperature(self) -> float:
@@ -382,14 +413,17 @@ class AirConditioner(Protocol):
         Returns:
             The maximum target temperature in degrees Celsius.
         """
+        ...
 
     @property
     def spill_state(self) -> AcSpillState:
         """Whether the air-conditioner spill or bypass feature is active."""
+        ...
 
     @property
     def zones(self) -> Sequence[Zone]:
         """The set of AirTouch zones associated with this Air-Conditioner."""
+        ...
 
     def next_quick_timer(self, timer_type: AcTimerType) -> datetime.time | None:
         """The next activation time for a quick timer.
@@ -400,6 +434,7 @@ class AirConditioner(Protocol):
             no embedded time-zone information. It is up to the user to apply
             appropriate time-zone offsets.
         """
+        ...
 
     @property
     def error_info(self) -> AcErrorInfo | None:
@@ -408,6 +443,7 @@ class AirConditioner(Protocol):
         Returns:
             The error code and descriptive string, or None if there is no error.
         """
+        ...
 
     async def set_power(self, power_control: AcPowerControl) -> None:
         """Set a new power state for the air-conditioner.
@@ -415,6 +451,7 @@ class AirConditioner(Protocol):
         Raises:
             ValueError: If the requested power control is not supported.
         """
+        ...
 
     async def set_mode(self, mode: AcMode, *, power_on: bool = False) -> None:
         """Set a new mode for the air-conditioner.
@@ -430,6 +467,7 @@ class AirConditioner(Protocol):
         Raises:
             ValueError: The requested mode is not supported.
         """
+        ...
 
     async def set_fan_speed(self, fan_speed: AcFanSpeed) -> None:
         """Set a new fan speed for the air-conditioner.
@@ -440,6 +478,7 @@ class AirConditioner(Protocol):
         Raises:
             ValueError: The requested fan speed is not supported.
         """
+        ...
 
     async def set_target_temperature(self, temperature: float) -> None:
         """Set a new target temperature for the air-conditioner.
@@ -455,6 +494,7 @@ class AirConditioner(Protocol):
                 `target_temperature_resolution` and bounded by
                 `min_target_temperature` and `max_target_temperature`.
         """
+        ...
 
     async def set_quick_timer(
         self, timer_type: AcTimerType, value: datetime.time | datetime.timedelta
@@ -466,6 +506,7 @@ class AirConditioner(Protocol):
             value: Either the duration or time of day for the timer to next activate.
                 The value will be truncated to a one minute resolution.
         """
+        ...
 
     async def clear_quick_timer(self, timer_type: AcTimerType) -> None:
         """Clear a quick timer for the air-conditioner.
@@ -475,6 +516,7 @@ class AirConditioner(Protocol):
         Args:
             timer_type: Whether to clear the On or Off timer.
         """
+        ...
 
     def subscribe(self, subscriber: UpdateSubscriber) -> None:
         """Subscribe to notifications of updates to the air-conditioner.
@@ -484,12 +526,14 @@ class AirConditioner(Protocol):
 
         Has no effect if the subscriber is already subscribed.
         """
+        ...
 
     def unsubscribe(self, subscriber: UpdateSubscriber) -> None:
         """Unsubscribe from update notifications.
 
         Has no effect if the subscriber is not subscribed.
         """
+        ...
 
     def subscribe_ac_state(self, subscriber: UpdateSubscriber) -> None:
         """Subscribe to air-conditioner state updates.
@@ -499,12 +543,14 @@ class AirConditioner(Protocol):
 
         Has no effect if the subscriber is already subscribed.
         """
+        ...
 
     def unsubscribe_ac_state(self, subscriber: UpdateSubscriber) -> None:
         """Unsubcribe from air-conditioner state updates.
 
         Has no effect if the subscriber is not subscribed.
         """
+        ...
 
 
 class AirTouch(Protocol):
@@ -516,36 +562,44 @@ class AirTouch(Protocol):
         Returns:
             True if the AirTouch has been succesfully initalised, false otherwise.
         """
+        ...
 
     async def shutdown(self) -> None:
         """Shuts down the AirTouch API and disconnects from the AirTouch system.
 
         The API can be restarted again by calling `init()`.
         """
+        ...
 
     @property
     def initialised(self) -> bool:
         """Whether the AirTouch system has been initialised."""
+        ...
 
     @property
     def airtouch_id(self) -> str:
         """The ID of this AirTouch system."""
+        ...
 
     @property
     def serial(self) -> str:
         """The serial number of this AirTouch system."""
+        ...
 
     @property
     def name(self) -> str:
         """The name of this AirTouch system."""
+        ...
 
     @property
     def host(self) -> str:
         """The host name or IP address of this AirTouch system."""
+        ...
 
     @property
     def model(self) -> AirTouchModel:
         """The model of this AirTouch system."""
+        ...
 
     @property
     def update_available(self) -> bool:
@@ -555,6 +609,7 @@ class AirTouch(Protocol):
         Use the `check_for_updates()` method to request an immediate check for
         updates.
         """
+        ...
 
     @property
     def console_versions(self) -> Sequence[str]:
@@ -564,10 +619,12 @@ class AirTouch(Protocol):
         If the AirTouch interface hasn't been initialised an empty sequence will
         be returned.
         """
+        ...
 
     @property
     def air_conditioners(self) -> Sequence[AirConditioner]:
         """The set of Air Conditioners integrated with this AirTouch system."""
+        ...
 
     async def check_for_updates(self) -> None:
         """Poll to check for available updates.
@@ -578,6 +635,7 @@ class AirTouch(Protocol):
         Note: Update checks will be performed periodically, there is no need to
         use this method if the periodic checks are sufficient.
         """
+        ...
 
     def subscribe(self, subscriber: AirTouchSubscriber) -> None:
         """Subscribe to notifications of updates to the AirTouch.
@@ -587,9 +645,11 @@ class AirTouch(Protocol):
 
         Has no effect if the subscriber is already subscribed.
         """
+        ...
 
     def unsubscribe(self, subscriber: AirTouchSubscriber) -> None:
         """Unsubscribe from update notifications.
 
         Has no effect if the subscriber is not subscribed.
         """
+        ...

@@ -61,8 +61,8 @@ class AcTimerStatusMessage(comms.Message):
 
     ac_timer_status: Sequence[AcTimerStatusData]
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -71,8 +71,8 @@ class AcTimerStatusMessage(comms.Message):
 class AcTimerStatusRequest(comms.Message):
     """Request for AC Timer Status."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 

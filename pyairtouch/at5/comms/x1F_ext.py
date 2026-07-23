@@ -45,8 +45,8 @@ class ExtendedMessage(comms.Message, Generic[comms.Msg]):
 
     sub_message: comms.Msg
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 

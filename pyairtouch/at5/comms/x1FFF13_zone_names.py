@@ -31,8 +31,8 @@ class ZoneNamesMessage(comms.Message):
     zone_names: Mapping[int, str]
     """Mapping of zone number to zone name."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -44,8 +44,8 @@ class ZoneNamesRequest(comms.Message):
     zone_number: int | Literal["ALL"]
     """Request Zone Names for a single zone or all zones."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 

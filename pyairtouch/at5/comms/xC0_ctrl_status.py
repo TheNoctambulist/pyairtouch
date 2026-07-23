@@ -30,8 +30,8 @@ class ControlStatusMessage(comms.Message, Generic[comms.Msg]):
 
     sub_message: comms.Msg
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -49,13 +49,13 @@ class ControlStatusSubHeader(comms.Header):
     repeat_count: int
     """Number of repeated fields."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return self.sub_message_id
 
-    @override
     @property
+    @override
     def message_length(self) -> int:
         """The length of the sub-message (in bytes).
 
@@ -69,17 +69,21 @@ class ControlStatusSubEncoder(Protocol[comms.Msg_contra]):
 
     def non_repeat_size(self, message: comms.Msg_contra) -> int:
         """Size of the non-repeating part of the specified message in bytes."""
+        ...
 
     def repeat_count(self, message: comms.Msg_contra) -> int:
         """Number of repeat sections included in the specified message."""
+        ...
 
     def repeat_size(self, message: comms.Msg_contra) -> int:
         """Size of each repeat section in the specified message in bytes."""
+        ...
 
     def encode(
         self, header: ControlStatusSubHeader, message: comms.Msg_contra
     ) -> bytes:
         """Encodes the specified messages into a bytes array."""
+        ...
 
 
 class UnsupportedControlStatusDecoder(

@@ -116,18 +116,18 @@ class At4Zone(pyairtouch.api.Zone):
         if old_status != group_status:
             await _notify_subscribers([s(self.zone_id) for s in self._subscribers])
 
-    @override
     @property
+    @override
     def zone_id(self) -> int:
         return self._group_status.group_number
 
-    @override
     @property
+    @override
     def name(self) -> str:
         return self._name
 
-    @override
     @property
+    @override
     def supported_power_states(self) -> Sequence[pyairtouch.api.ZonePowerState]:
         supported_states = [
             pyairtouch.api.ZonePowerState.OFF,
@@ -137,48 +137,48 @@ class At4Zone(pyairtouch.api.Zone):
             supported_states.append(pyairtouch.api.ZonePowerState.TURBO)
         return supported_states
 
-    @override
     @property
+    @override
     def power_state(self) -> pyairtouch.api.ZonePowerState:
         return _ZONE_POWER_STATE_MAPPING[self._group_status.power_state]
 
-    @override
     @property
+    @override
     def control_method(self) -> pyairtouch.api.ZoneControlMethod:
         return _ZONE_CONTROL_METHOD_MAPPING[self._group_status.control_method]
 
-    @override
     @property
+    @override
     def has_temp_sensor(self) -> bool:
         return self._group_status.has_sensor
 
-    @override
     @property
+    @override
     def sensor_battery_status(self) -> pyairtouch.api.SensorBatteryStatus:
         return _SENSOR_BATTERY_STATUS_MAPPING[self._group_status.battery_status]
 
-    @override
     @property
+    @override
     def current_temperature(self) -> float | None:
         return self._group_status.temperature
 
-    @override
     @property
+    @override
     def target_temperature(self) -> float | None:
         return self._group_status.set_point
 
-    @override
     @property
+    @override
     def target_temperature_resolution(self) -> float:
         return _TARGET_TEMPERATURE_RESOLUTION
 
-    @override
     @property
+    @override
     def current_damper_percentage(self) -> int:
         return self._group_status.damper_percentage
 
-    @override
     @property
+    @override
     def spill_active(self) -> bool:
         return self._group_status.spill_active
 
@@ -430,93 +430,93 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
                 ]
             )
 
-    @override
     @property
+    @override
     def ac_id(self) -> int:
         return self._ac_status.ac_number
 
-    @override
     @property
+    @override
     def name(self) -> str:
         return self._ac_ability.ac_name
 
-    @override
     @property
+    @override
     def supported_power_controls(self) -> Sequence[pyairtouch.api.AcPowerControl]:
         return self._supported_power_controls
 
-    @override
     @property
+    @override
     def supported_modes(self) -> Sequence[pyairtouch.api.AcMode]:
         return self._supported_modes
 
-    @override
     @property
+    @override
     def supported_fan_speeds(self) -> Sequence[pyairtouch.api.AcFanSpeed]:
         return self._supported_fan_speeds
 
-    @override
     @property
+    @override
     def power_state(self) -> pyairtouch.api.AcPowerState:
         return _AC_POWER_STATE_MAPPING[self._ac_status.power_state]
 
-    @override
     @property
+    @override
     def selected_mode(self) -> pyairtouch.api.AcMode:
         return _AC_SELECTED_MODE_MAPPING[self._ac_status.mode]
 
-    @override
     @property
+    @override
     def active_mode(self) -> pyairtouch.api.AcMode:
         return _AC_ACTIVE_MODE_MAPPING[self._ac_status.mode]
 
-    @override
     @property
+    @override
     def selected_fan_speed(self) -> pyairtouch.api.AcFanSpeed:
         return _AC_FAN_SPEED_MAPPING[self._ac_status.fan_speed]
 
-    @override
     @property
+    @override
     def active_fan_speed(self) -> pyairtouch.api.AcFanSpeed:
         # AirTouch 4 doesn't support Intelligent Auto or any other way to
         # identify the underlying fan speed in Auto fan speed modes, so we just
         # return the currently selected fan speed.
         return _AC_FAN_SPEED_MAPPING[self._ac_status.fan_speed]
 
-    @override
     @property
+    @override
     def current_temperature(self) -> float:
         return self._ac_status.temperature
 
-    @override
     @property
+    @override
     def target_temperature(self) -> float:
         return self._ac_status.set_point
 
-    @override
     @property
+    @override
     def target_temperature_resolution(self) -> float:
         return _TARGET_TEMPERATURE_RESOLUTION
 
-    @override
     @property
+    @override
     def min_target_temperature(self) -> float:
         return self._ac_ability.min_set_point
 
-    @override
     @property
+    @override
     def max_target_temperature(self) -> float:
         return self._ac_ability.max_set_point
 
-    @override
     @property
+    @override
     def spill_state(self) -> pyairtouch.api.AcSpillState:
         if self._ac_status.spill_active:
             return pyairtouch.api.AcSpillState.SPILL
         return pyairtouch.api.AcSpillState.NONE
 
-    @override
     @property
+    @override
     def zones(self) -> Sequence[pyairtouch.api.Zone]:
         return self._zones
 
@@ -534,8 +534,8 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
             return None
         return datetime.time(hour=timer_state.hour, minute=timer_state.minute)
 
-    @override
     @property
+    @override
     def error_info(self) -> pyairtouch.api.AcErrorInfo | None:
         if self._ac_status.has_error():
             return pyairtouch.api.AcErrorInfo(
@@ -834,48 +834,48 @@ class AirTouch4(pyairtouch.api.AirTouch):
         self._air_conditioners.clear()
         self._zones.clear()
 
-    @override
     @property
+    @override
     def initialised(self) -> bool:
         return self._initialised_event.is_set()
 
-    @override
     @property
+    @override
     def airtouch_id(self) -> str:
         return self._airtouch_id
 
-    @override
     @property
+    @override
     def serial(self) -> str:
         return self._serial
 
-    @override
     @property
+    @override
     def name(self) -> str:
         return self._name
 
-    @override
     @property
+    @override
     def host(self) -> str:
         return self._socket.host
 
-    @override
     @property
+    @override
     def model(self) -> pyairtouch.api.AirTouchModel:
         return pyairtouch.api.AirTouchModel.AIRTOUCH_4
 
-    @override
     @property
+    @override
     def update_available(self) -> bool:
         return self._console_version.update_available
 
-    @override
     @property
+    @override
     def console_versions(self) -> Sequence[str]:
         return self._console_version.versions
 
-    @override
     @property
+    @override
     def air_conditioners(self) -> Sequence[pyairtouch.api.AirConditioner]:
         return list(self._air_conditioners.values())
 

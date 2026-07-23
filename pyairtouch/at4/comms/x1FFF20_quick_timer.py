@@ -40,8 +40,8 @@ class QuickTimerMessage(comms.Message):
     duration: datetime.timedelta
     """The duration of the timer. Resolution is to the nearest minute."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 

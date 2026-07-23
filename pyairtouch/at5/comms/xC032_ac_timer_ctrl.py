@@ -32,8 +32,8 @@ class AcTimerControlMessage(xC033_ac_timer_status.AcTimerStatusMessage):
     logic.
     """
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 

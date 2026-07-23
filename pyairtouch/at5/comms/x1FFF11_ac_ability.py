@@ -48,8 +48,8 @@ class AcAbilityMessage(comms.Message):
 
     ac_abilities: Sequence[AcAbility]
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -61,8 +61,8 @@ class AcAbilityRequest(comms.Message):
     ac_number: int | Literal["ALL"]
     """Request AC Ability information for a single AC, or all ACs."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -93,7 +93,7 @@ class AcAbilityEncoder(
     @override
     def encode(
         self,
-        _: x1F_ext.ExtendedMessageSubHeader,
+        header: x1F_ext.ExtendedMessageSubHeader,
         message: AcAbilityMessage | AcAbilityRequest,
     ) -> bytes:
         if isinstance(message, AcAbilityRequest):

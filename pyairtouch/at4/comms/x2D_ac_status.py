@@ -90,8 +90,8 @@ class AcStatusMessage(comms.Message):
 
     ac_status: Sequence[AcStatusData]
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -100,8 +100,8 @@ class AcStatusMessage(comms.Message):
 class AcStatusRequest(comms.Message):
     """Request for AC Status."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 

@@ -40,8 +40,8 @@ class QuickTimerMessage(comms.Message):
     duration: datetime.timedelta
     """The duration of the timer. Resolution is to the nearest minute."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -61,7 +61,7 @@ class QuickTimerEncoder(
     @override
     def encode(
         self,
-        _: x1F_ext.ExtendedMessageSubHeader,
+        header: x1F_ext.ExtendedMessageSubHeader,
         message: QuickTimerMessage,
     ) -> bytes:
         hours, minutes = self._encode_duration(message.duration)
@@ -94,7 +94,7 @@ class QuickTimerDecoder(
 
     @override
     def decode(
-        self, buffer: bytes | bytearray, _: x1F_ext.ExtendedMessageSubHeader
+        self, buffer: bytes | bytearray, header: x1F_ext.ExtendedMessageSubHeader
     ) -> comms.MessageDecodeResult[QuickTimerMessage]:
         (
             ac_number,

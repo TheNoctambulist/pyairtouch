@@ -88,8 +88,8 @@ class ZoneStatusMessage(comms.Message):
 
     zones: Sequence[ZoneStatusData]
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -98,8 +98,8 @@ class ZoneStatusMessage(comms.Message):
 class ZoneStatusRequest(comms.Message):
     """Request for Zone Status Data."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -120,7 +120,7 @@ class ZoneStatusEncoder(
     """
 
     @override
-    def non_repeat_size(self, _: ZoneStatusMessage | ZoneStatusRequest) -> int:
+    def non_repeat_size(self, message: ZoneStatusMessage | ZoneStatusRequest) -> int:
         # No non-repeating data
         return 0
 
@@ -139,7 +139,7 @@ class ZoneStatusEncoder(
     @override
     def encode(
         self,
-        _: xC0_ctrl_status.ControlStatusSubHeader,
+        header: xC0_ctrl_status.ControlStatusSubHeader,
         message: ZoneStatusMessage | ZoneStatusRequest,
     ) -> bytes:
         if isinstance(message, ZoneStatusRequest):

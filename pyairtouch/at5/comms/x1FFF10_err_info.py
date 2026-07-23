@@ -30,8 +30,8 @@ class AcErrorInformationMessage(comms.Message):
     error_info: str | None
     """The error information, or None if there is no error for this AC."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -43,8 +43,8 @@ class AcErrorInformationRequest(comms.Message):
     ac_number: int
     """The AC for which error information should be retrieved."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -76,7 +76,7 @@ class AcErrorInformationEncoder(
     @override
     def encode(
         self,
-        _: x1F_ext.ExtendedMessageSubHeader,
+        header: x1F_ext.ExtendedMessageSubHeader,
         message: AcErrorInformationMessage | AcErrorInformationRequest,
     ) -> bytes:
         buffer = bytearray()

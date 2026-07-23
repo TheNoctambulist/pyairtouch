@@ -34,8 +34,8 @@ class ConsoleVersionMessage(comms.Message):
     version is the version of the console that we are communicating with.
     """
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -44,8 +44,8 @@ class ConsoleVersionMessage(comms.Message):
 class ConsoleVersionRequest(comms.Message):
     """Request for console version information."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -76,7 +76,7 @@ class ConsoleVersionEncoder(
     @override
     def encode(
         self,
-        _: x1F_ext.ExtendedMessageSubHeader,
+        header: x1F_ext.ExtendedMessageSubHeader,
         message: ConsoleVersionMessage | ConsoleVersionRequest,
     ) -> bytes:
         if isinstance(message, ConsoleVersionRequest):

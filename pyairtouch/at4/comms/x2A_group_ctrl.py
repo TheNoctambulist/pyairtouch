@@ -79,8 +79,8 @@ class GroupControlMessage(comms.Message):
     control_method: GroupControlMethod
     setting: GroupSetting
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -98,7 +98,7 @@ class GroupControlEncoder(comms.MessageEncoder[At4Header, GroupControlMessage]):
     """Encoder for the Group Control message."""
 
     @override
-    def size(self, _: GroupControlMessage) -> int:
+    def size(self, message: GroupControlMessage) -> int:
         return _STRUCT.size
 
     @override

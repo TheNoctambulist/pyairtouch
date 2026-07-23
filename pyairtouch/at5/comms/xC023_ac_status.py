@@ -49,7 +49,8 @@ class AcPowerState(enum.Enum):
     UNKNOWN = 15
 
     @classmethod
-    def _missing_(cls, _: Any) -> "AcPowerState":  # noqa: ANN401
+    @override
+    def _missing_(cls, value: Any) -> "AcPowerState":
         # The protocol reserves all other values for future use.
         return AcPowerState.UNKNOWN
 
@@ -67,7 +68,8 @@ class AcMode(enum.Enum):
     UNKNOWN = 15
 
     @classmethod
-    def _missing_(cls, _: Any) -> "AcMode":  # noqa: ANN401
+    @override
+    def _missing_(cls, value: Any) -> "AcMode":
         # The protocol reserves all other values for future use.
         return AcMode.UNKNOWN
 
@@ -95,7 +97,8 @@ class AcFanSpeed(enum.Enum):
     UNKNOWN = 15
 
     @classmethod
-    def _missing_(cls, _: Any) -> "AcFanSpeed":  # noqa: ANN401
+    @override
+    def _missing_(cls, value: Any) -> "AcFanSpeed":
         # The protocol reserves all other values for future use.
         return AcFanSpeed.UNKNOWN
 
@@ -132,8 +135,8 @@ class AcStatusMessage(comms.Message):
 
     ac_status: Sequence[AcStatusData]
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -142,8 +145,8 @@ class AcStatusMessage(comms.Message):
 class AcStatusRequest(comms.Message):
     """Request for AC Status."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -186,7 +189,7 @@ class AcStatusEncoder(
     @override
     def encode(
         self,
-        _: xC0_ctrl_status.ControlStatusSubHeader,
+        header: xC0_ctrl_status.ControlStatusSubHeader,
         message: AcStatusMessage | AcStatusRequest,
     ) -> bytes:
         if isinstance(message, AcStatusRequest):

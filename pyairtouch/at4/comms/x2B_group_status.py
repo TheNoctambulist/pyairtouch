@@ -81,8 +81,8 @@ class GroupStatusMessage(comms.Message):
 
     groups: Sequence[GroupStatusData]
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -91,8 +91,8 @@ class GroupStatusMessage(comms.Message):
 class GroupStatusRequest(comms.Message):
     """Request for Group Status Data."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 

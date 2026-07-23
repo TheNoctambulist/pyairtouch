@@ -33,8 +33,8 @@ _PART_NAME = 4
 class At5DiscoveryRequest(comms.DiscoveryRequest):
     """The discovery request for the AirTouch 5."""
 
-    @override
     @property
+    @override
     def data(self) -> bytes:
         return _REQUEST_DATA
 

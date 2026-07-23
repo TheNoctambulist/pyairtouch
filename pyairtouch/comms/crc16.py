@@ -54,7 +54,10 @@ Source: https://www.modbustools.com/modbus_crc16.html
 class Crc16Modbus(comms.ChecksumCalculator):
     """An implementation of the checksum calculator using the CRC16 Modbus Algorithm."""
 
-    checksum_length = 2
+    @property
+    @override
+    def checksum_length(self) -> int:
+        return 2
 
     @override
     def calculate(self, buffer: bytes | bytearray) -> bytes:

@@ -35,8 +35,8 @@ class GroupNamesMessage(comms.Message):
     Group numbers in range [0, MAX_GROUP_NUMBER].
     """
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -48,8 +48,8 @@ class GroupNamesRequest(comms.Message):
     group_number: int | Literal["ALL"]
     """Request group names for a single group or all groups."""
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 

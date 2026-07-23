@@ -38,7 +38,8 @@ class AcModeControl(enum.Enum):
     UNCHANGED = 0xFF
 
     @classmethod
-    def _missing_(cls, _: Any) -> "AcModeControl":  # noqa: ANN401
+    @override
+    def _missing_(cls, value: Any) -> "AcModeControl":
         # All "other" values are equivalent to no change
         return AcModeControl.UNCHANGED
 
@@ -56,7 +57,8 @@ class AcFanSpeedControl(enum.Enum):
     UNCHANGED = 0xFF
 
     @classmethod
-    def _missing_(cls, _: Any) -> "AcFanSpeedControl":  # noqa: ANN401
+    @override
+    def _missing_(cls, value: Any) -> "AcFanSpeedControl":
         # All "other" values are equivalent to no change
         return AcFanSpeedControl.UNCHANGED
 
@@ -88,8 +90,8 @@ class AcControlMessage(comms.Message):
     fan_speed: AcFanSpeedControl
     set_point_control: AcSetPointControl
 
-    @override
     @property
+    @override
     def message_id(self) -> int:
         return MESSAGE_ID
 
@@ -106,7 +108,7 @@ class AcControlEncoder(comms.MessageEncoder[At4Header, AcControlMessage]):
     """Encoder for the AC Control Message."""
 
     @override
-    def size(self, _: AcControlMessage) -> int:
+    def size(self, message: AcControlMessage) -> int:
         return _STRUCT.size
 
     @override

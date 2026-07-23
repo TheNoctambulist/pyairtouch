@@ -103,8 +103,8 @@ class HeaderEncoder(comms.HeaderEncoder[At5Header]):
 class HeaderDecoder(comms.HeaderDecoder[At5Header]):
     """Decoder for the AirTouch 5 header."""
 
-    @override
     @property
+    @override
     def header_length(self) -> int:
         return _STRUCT.size
 

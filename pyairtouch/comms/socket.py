@@ -38,6 +38,7 @@ class ConnectionSubscriber(Protocol):
         Args:
             connected: whether or not the socket is connected.
         """
+        ...
 
 
 MessageSubscriber = Callable[[comms.Hdr, comms.Message], Awaitable[None]]
@@ -431,43 +432,41 @@ class AirTouchSocket(Generic[comms.Hdr]):
         return (header, message_result.message)
 
     async def _drain_message_queue(self) -> None:
-        if not self.is_connected:
-            # Wait until we're connected
-            return
-
-        try:
-            while self._message_queue:
-                entry = self._message_queue.popleft()
-
+        # Only drain messages while connected
+        while self._message_queue and self.is_connected:
+            entry = self._message_queue.popleft()
+            try:
                 if self._loop.time() < entry.expiry:
                     await self._write(entry.header, entry.message)
                 else:
                     self._log_dropped_message(entry, "expired")
 
-        except (ValueError, NotImplementedError):
-            # This indicates an error encoding this message.
-            # We shouldn't retry this message, but the connection doesn't need
-            # to be reset.
-            _LOGGER.exception("Encoding error for message %s", entry.message)
+            except (ValueError, NotImplementedError):
+                # This indicates an error encoding this message.
+                # We shouldn't retry this message, but the connection doesn't need
+                # to be reset.
+                _LOGGER.exception("Encoding error for message %s", entry.message)
 
-        except OSError as ex:
-            # Connection errors may turn up here rather than in the read method.
-            # This would often indicate we had a half-open socket where the
-            # connection was just killed.
-            _LOGGER.debug("write: Socket error %s while sending %s", ex, entry.message)
-            if entry.retries_remaining == 0:
-                self._log_dropped_message(entry, "max-retries")
-            else:
-                # Return this message to the head of the queue for a retry
-                self._message_queue.appendleft(
-                    _MessageQueueEntry(
-                        header=entry.header,
-                        message=entry.message,
-                        retries_remaining=entry.retries_remaining - 1,
-                        expiry=entry.expiry,
-                    )
+            except OSError as ex:
+                # Connection errors may turn up here rather than in the read method.
+                # This would often indicate we had a half-open socket where the
+                # connection was just killed.
+                _LOGGER.debug(
+                    "write: Socket error %s while sending %s", ex, entry.message
                 )
-            await self.reset_connection()
+                if entry.retries_remaining == 0:
+                    self._log_dropped_message(entry, "max-retries")
+                else:
+                    # Return this message to the head of the queue for a retry
+                    self._message_queue.appendleft(
+                        _MessageQueueEntry(
+                            header=entry.header,
+                            message=entry.message,
+                            retries_remaining=entry.retries_remaining - 1,
+                            expiry=entry.expiry,
+                        )
+                    )
+                await self.reset_connection()
 
     async def _write(self, header: comms.Hdr, message: comms.Message) -> None:
         """Writes a single message to the stream.
