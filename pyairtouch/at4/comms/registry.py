@@ -23,6 +23,7 @@ from . import (
     x2B_group_status,
     x2C_ac_ctrl,
     x2D_ac_status,
+    x2F03FF_full_state,
     x36_ac_timer_ctrl,
     x37_ac_timer_status,
 )
@@ -41,7 +42,7 @@ class HeaderFactory(comms.HeaderFactory[hdr.At4Header]):
 
         # The "To" address depends whether we are sending an extended message or not.
         to_address = hdr.ADDRESS_AIRTOUCH
-        if message_id == x1F_ext.MESSAGE_ID:
+        if message_id == x1F_ext.MESSAGE_ID_1F:
             to_address = hdr.ADDRESS_AIRTOUCH_EXTENDED
 
         return hdr.At4Header(
@@ -69,7 +70,7 @@ INSTANCE = comms.MessageRegistry(
 #
 # Extended Message Registration
 #
-_extended_encoder = x1F_ext.ExtendedMessageEncoder(
+_extended_encoder_1f = x1F_ext.ExtendedMessageEncoder(
     encoder_map={
         x1FFF10_err_info.MESSAGE_ID: x1FFF10_err_info.AcErrorInformationEncoder(),
         x1FFF11_ac_ability.MESSAGE_ID: x1FFF11_ac_ability.AcAbilityEncoder(),
@@ -78,7 +79,7 @@ _extended_encoder = x1F_ext.ExtendedMessageEncoder(
         x1FFF30_console_ver.MESSAGE_ID: x1FFF30_console_ver.ConsoleVersionEncoder(),
     }
 )
-_extended_decoder = x1F_ext.ExtendedMessageDecoder(
+_extended_decoder_1f = x1F_ext.ExtendedMessageDecoder(
     decoder_map={
         x1FFF10_err_info.MESSAGE_ID: x1FFF10_err_info.AcErrorInformationDecoder(),
         x1FFF11_ac_ability.MESSAGE_ID: x1FFF11_ac_ability.AcAbilityDecoder(),
@@ -89,9 +90,26 @@ _extended_decoder = x1F_ext.ExtendedMessageDecoder(
 )
 
 INSTANCE.register(
-    message_id=x1F_ext.MESSAGE_ID,
-    encoder=_extended_encoder,
-    decoder=_extended_decoder,
+    message_id=x1F_ext.MESSAGE_ID_1F,
+    encoder=_extended_encoder_1f,
+    decoder=_extended_decoder_1f,
+)
+
+_extended_encoder_2f = x1F_ext.ExtendedMessageEncoder(
+    encoder_map={
+        x2F03FF_full_state.MESSAGE_ID: x2F03FF_full_state.FullStateEncoder(),
+    }
+)
+_extended_decoder_2f = x1F_ext.ExtendedMessageDecoder(
+    decoder_map={
+        x2F03FF_full_state.MESSAGE_ID: x2F03FF_full_state.FullStateDecoder(),
+    }
+)
+
+INSTANCE.register(
+    message_id=x1F_ext.MESSAGE_ID_2F,
+    encoder=_extended_encoder_2f,
+    decoder=_extended_decoder_2f,
 )
 
 #

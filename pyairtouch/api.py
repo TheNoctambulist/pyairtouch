@@ -577,13 +577,20 @@ class AirTouch(Protocol):
         ...
 
     @property
-    def airtouch_id(self) -> str:
-        """The ID of this AirTouch system."""
+    def airtouch_id(self) -> str | None:
+        """The ID of this AirTouch system.
+
+        May return None until self.initialised is True.
+        """
         ...
 
     @property
-    def serial(self) -> str:
-        """The serial number of this AirTouch system."""
+    def serial(self) -> str | None:
+        """The serial number of this AirTouch system.
+
+        Should only be used for informational purposes.
+        May return None or a non-unique value.
+        """
         ...
 
     @property

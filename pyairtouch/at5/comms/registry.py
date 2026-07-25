@@ -24,6 +24,7 @@ from . import (
     xC023_ac_status,
     xC032_ac_timer_ctrl,
     xC033_ac_timer_status,
+    xC045_preference_settings_report,
 )
 
 
@@ -106,6 +107,9 @@ _ctrl_status_encoder = xC0_ctrl_status.ControlStatusEncoder(
         xC023_ac_status.MESSAGE_ID: xC023_ac_status.AcStatusEncoder(),
         xC032_ac_timer_ctrl.MESSAGE_ID: xC032_ac_timer_ctrl.AcTimerControlEncoder(),
         xC033_ac_timer_status.MESSAGE_ID: xC033_ac_timer_status.AcTimerStatusEncoder(),
+        xC045_preference_settings_report.MESSAGE_ID: (
+            xC045_preference_settings_report.PreferenceSettingsReportEncoder()
+        ),
     }
 )
 _ctrl_status_decoder = xC0_ctrl_status.ControlStatusDecoder(
@@ -116,6 +120,9 @@ _ctrl_status_decoder = xC0_ctrl_status.ControlStatusDecoder(
         xC023_ac_status.MESSAGE_ID: xC023_ac_status.AcStatusDecoder(),
         xC032_ac_timer_ctrl.MESSAGE_ID: xC032_ac_timer_ctrl.AcTimerControlDecoder(),
         xC033_ac_timer_status.MESSAGE_ID: xC033_ac_timer_status.AcTimerStatusDecoder(),
+        xC045_preference_settings_report.MESSAGE_ID: (
+            xC045_preference_settings_report.PreferenceSettingsReportDecoder()
+        ),
     }
 )
 

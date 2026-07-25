@@ -21,6 +21,7 @@ import pyairtouch.at5.comms.xC022_ac_ctrl as ac_ctrl_msg
 import pyairtouch.at5.comms.xC023_ac_status as ac_status_msg
 import pyairtouch.at5.comms.xC032_ac_timer_ctrl as ac_timer_ctrl_msg
 import pyairtouch.at5.comms.xC033_ac_timer_status as ac_timer_status_msg
+import pyairtouch.at5.comms.xC045_preference_settings_report as pref_settings_report_msg
 import pyairtouch.comms.heartbeat
 import pyairtouch.comms.socket
 from pyairtouch.at5.comms.x1F_ext import (
@@ -782,7 +783,9 @@ class _AirTouchState(Enum):
     CLOSED = auto()
     # ↓ Open socket
     CONNECTING = auto()
-    # ↓ Connected, send ConsoleVersionRequest
+    # ↓ Connected, send PreferenceSettingsReportRequest (if airtouch_id undefined)
+    INIT_AIRTOUCH_ID = auto()
+    # ↓ Receive PreferenceSettingsReport, send ConsoleVersionRequest
     INIT_VERSION = auto()
     # ↓ Receive ConsoleVersionMessage, send ZoneNamesRequest
     INIT_ZONE_NAMES = auto()
@@ -811,17 +814,18 @@ class AirTouch5(pyairtouch.api.AirTouch):
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
-        airtouch_id: str,
-        serial: str,
-        name: str,
         socket: pyairtouch.comms.socket.AirTouchSocket[
             pyairtouch.at5.comms.hdr.At5Header
         ],
+        airtouch_id: str | None = None,
+        serial: str | None = None,
+        name: str = "AirTouch 5",
     ) -> None:
         """Initialise the AirTouch 5 object.
 
         Args:
-            airtouch_id: The ID of the primary AirTouch controller.
+            airtouch_id: The ID of the primary AirTouch controller. If not provided, the
+                AirTouch ID will be discovered during initialisation.
             serial: The serial number for the primary AirTouch controller.
             name: The human readable name for the AirTouch system.
             socket: The socket for communicating with the AirTouch.
@@ -901,12 +905,12 @@ class AirTouch5(pyairtouch.api.AirTouch):
 
     @property
     @override
-    def airtouch_id(self) -> str:
+    def airtouch_id(self) -> str | None:
         return self._airtouch_id
 
     @property
     @override
-    def serial(self) -> str:
+    def serial(self) -> str | None:
         return self._serial
 
     @property
@@ -956,15 +960,27 @@ class AirTouch5(pyairtouch.api.AirTouch):
 
     async def _connection_changed(self, *, connected: bool) -> None:
         if connected and self._state == _AirTouchState.CONNECTING:
-            # Move into the INIT_VERSION state by sending a ConsoleVersionRequest
-            self._state = _AirTouchState.INIT_VERSION
-            console_version_request = ExtendedMessage(
-                console_ver_msg.ConsoleVersionRequest()
-            )
-            await self._socket.send(
-                message=console_version_request,
-                retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
-            )
+            if self._airtouch_id is None:
+                # Move into the INIT_AIRTOUCH_ID state by sending a
+                # PreferenceSettingsReportRequest
+                self._state = _AirTouchState.INIT_AIRTOUCH_ID
+                airtouch_id_request = ControlStatusMessage(
+                    pref_settings_report_msg.PreferenceSettingsReportRequest(),
+                )
+                await self._socket.send(
+                    message=airtouch_id_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
+            else:
+                # Move into the INIT_VERSION state by sending a ConsoleVersionRequest
+                self._state = _AirTouchState.INIT_VERSION
+                console_version_request = ExtendedMessage(
+                    console_ver_msg.ConsoleVersionRequest()
+                )
+                await self._socket.send(
+                    message=console_version_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
         elif connected:
             # Request the latest status in case we've been disconnected for a
             # while.
@@ -977,7 +993,7 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
             )
 
-    async def _message_received(  # noqa: C901, PLR0912
+    async def _message_received(  # noqa: C901, PLR0912, PLR0915
         self,
         header: pyairtouch.at5.comms.hdr.At5Header,
         message: pyairtouch.comms.Message,
@@ -985,6 +1001,22 @@ class AirTouch5(pyairtouch.api.AirTouch):
         # Process messages according to the current state.
         # Unhandled messages are silently ignored.
         match message:
+            case ControlStatusMessage(
+                pref_settings_report_msg.PreferenceSettingsReportMessage()
+            ) if self._state == _AirTouchState.INIT_AIRTOUCH_ID:
+                self._name = message.sub_message.system_name
+                self._airtouch_id = message.sub_message.airtouch_id
+
+                # Move to the next state
+                self._state = _AirTouchState.INIT_VERSION
+                console_version_request = ExtendedMessage(
+                    console_ver_msg.ConsoleVersionRequest()
+                )
+                await self._socket.send(
+                    message=console_version_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
+
             case ExtendedMessage(console_ver_msg.ConsoleVersionMessage()) if (
                 self._state == _AirTouchState.INIT_VERSION
             ):
@@ -1180,6 +1212,9 @@ class AirTouch5(pyairtouch.api.AirTouch):
         old_version = self._console_version
         self._console_version = console_version
         if old_version != console_version:
+            if self._airtouch_id is None:
+                # The airtouch_id should always be resolved by this stage.
+                raise ValueError("airtouch_id is not defined")
             await _notify_subscribers([s(self._airtouch_id) for s in self._subscribers])
 
 

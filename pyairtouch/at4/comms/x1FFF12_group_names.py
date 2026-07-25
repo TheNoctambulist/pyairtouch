@@ -26,7 +26,7 @@ MESSAGE_ID = 0xFF12
 
 
 @dataclass
-class GroupNamesMessage(comms.Message):
+class GroupNamesMessage(x1F_ext.ExtendedSubMessage1F):
     """The Group Names Message."""
 
     group_names: Mapping[int, str]
@@ -42,7 +42,7 @@ class GroupNamesMessage(comms.Message):
 
 
 @dataclass
-class GroupNamesRequest(comms.Message):
+class GroupNamesRequest(x1F_ext.ExtendedSubMessage1F):
     """Request for Group Names."""
 
     group_number: int | Literal["ALL"]

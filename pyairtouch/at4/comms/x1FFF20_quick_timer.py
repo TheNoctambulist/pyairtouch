@@ -30,7 +30,7 @@ class TimerType(enum.Enum):
 
 
 @dataclass
-class QuickTimerMessage(comms.Message):
+class QuickTimerMessage(x1F_ext.ExtendedSubMessage1F):
     """The Quick Timer message."""
 
     ac_number: int

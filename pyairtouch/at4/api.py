@@ -22,6 +22,7 @@ import pyairtouch.at4.comms.x2A_group_ctrl as group_ctrl_msg
 import pyairtouch.at4.comms.x2B_group_status as group_status_msg
 import pyairtouch.at4.comms.x2C_ac_ctrl as ac_ctrl_msg
 import pyairtouch.at4.comms.x2D_ac_status as ac_status_msg
+import pyairtouch.at4.comms.x2F03FF_full_state as full_state_msg
 import pyairtouch.at4.comms.x36_ac_timer_ctrl as ac_timer_ctrl_msg
 import pyairtouch.at4.comms.x37_ac_timer_status as ac_timer_status_msg
 import pyairtouch.comms.heartbeat
@@ -382,11 +383,9 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
             # error code.
             if ac_status.has_error():
                 await self._socket.send(
-                    message=extended_msg.ExtendedMessage(
-                        sub_message=err_info_msg.AcErrorInformationRequest(
-                            ac_number=self.ac_id
-                        )
-                    ),
+                    message=err_info_msg.AcErrorInformationRequest(
+                        ac_number=self.ac_id
+                    ).wrap(),
                     retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
                 )
             else:
@@ -596,13 +595,11 @@ class At4AirConditioner(pyairtouch.api.AirConditioner):
         match value:
             case datetime.timedelta():
                 await self._socket.send(
-                    message=extended_msg.ExtendedMessage(
-                        sub_message=quick_timer_msg.QuickTimerMessage(
-                            ac_number=self.ac_id,
-                            timer_type=_API_TIMER_TYPE_MAPPING[timer_type],
-                            duration=value,
-                        )
-                    ),
+                    message=quick_timer_msg.QuickTimerMessage(
+                        ac_number=self.ac_id,
+                        timer_type=_API_TIMER_TYPE_MAPPING[timer_type],
+                        duration=value,
+                    ).wrap(),
                     # Not strictly IDEMPOTENT since it is a duration, but given the
                     # one minute resolution it is close enough to use that retry policy.
                     retry_policy=pyairtouch.comms.socket.RETRY_IDEMPOTENT,
@@ -711,7 +708,9 @@ class _AirTouchState(Enum):
     CLOSED = auto()
     # ↓ Open socket
     CONNECTING = auto()
-    # ↓ Connected, send ConsoleVersionRequest
+    # ↓ Connected, send FullStateRequest (if airtouch_id undefined)
+    INIT_AIRTOUCH_ID = auto()
+    # ↓ Receive FullStateMessage, send ConsoleVersionRequest
     INIT_VERSION = auto()
     # ↓ Receive ConsoleVersionMessage, send GroupNamesRequest
     INIT_GROUP_NAMES = auto()
@@ -740,28 +739,29 @@ class AirTouch4(pyairtouch.api.AirTouch):
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
-        airtouch_id: str,
-        serial: str,
-        name: str,
         socket: pyairtouch.comms.socket.AirTouchSocket[
             pyairtouch.at4.comms.hdr.At4Header
         ],
+        airtouch_id: str | None = None,
+        serial: str | None = None,
+        name: str = "AirTouch 4",
     ) -> None:
         """Initialise the AirTouch 4 object.
 
         Args:
-            airtouch_id: The ID of the primary AirTouch controller.
-            serial: The serial number for the primary AirTouch controller.
-            name: The human readable name for the AirTouch system.
             socket: The socket for communicating with the AirTouch.
                 This class will take over ownership of the socket to mange the
                 connection state.
+            airtouch_id: The ID of the primary AirTouch controller. If not provided, the
+                AirTouch ID will be discovered during initialisation.
+            serial: The serial number for the primary AirTouch controller.
+            name: The human readable name for the AirTouch system.
         """
         self._loop = loop
+        self._socket = socket
         self._airtouch_id = airtouch_id
         self._serial = serial
         self._name = name
-        self._socket = socket
 
         # Using the console version request as a heartbeat also ensures that we
         # receive timely notifications when an update is available.
@@ -777,9 +777,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
             loop=loop,
             socket=socket,
             config=pyairtouch.comms.heartbeat.HeartbeatConfig(
-                message=extended_msg.ExtendedMessage(
-                    console_ver_msg.ConsoleVersionRequest()
-                ),
+                message=console_ver_msg.ConsoleVersionRequest().wrap(),
                 response_match=is_heartbeat_response,
             ),
         )
@@ -841,12 +839,12 @@ class AirTouch4(pyairtouch.api.AirTouch):
 
     @property
     @override
-    def airtouch_id(self) -> str:
+    def airtouch_id(self) -> str | None:
         return self._airtouch_id
 
     @property
     @override
-    def serial(self) -> str:
+    def serial(self) -> str | None:
         return self._serial
 
     @property
@@ -882,9 +880,7 @@ class AirTouch4(pyairtouch.api.AirTouch):
     @override
     async def check_for_updates(self) -> None:
         await self._socket.send(
-            message=extended_msg.ExtendedMessage(
-                console_ver_msg.ConsoleVersionRequest()
-            ),
+            message=console_ver_msg.ConsoleVersionRequest().wrap(),
             retry_policy=pyairtouch.comms.socket.RETRY_IDEMPOTENT,
         )
 
@@ -898,15 +894,22 @@ class AirTouch4(pyairtouch.api.AirTouch):
 
     async def _connection_changed(self, *, connected: bool) -> None:
         if connected and self._state == _AirTouchState.CONNECTING:
-            # Move into the INIT_VERSION state by sending a ConsoleVersionRequest
-            self._state = _AirTouchState.INIT_VERSION
-            version_request = extended_msg.ExtendedMessage(
-                console_ver_msg.ConsoleVersionRequest()
-            )
-            await self._socket.send(
-                message=version_request,
-                retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
-            )
+            if self._airtouch_id is None:
+                # Move into the INIT_AIRTOUCH_ID state by sending a FullStateRequest
+                self._state = _AirTouchState.INIT_AIRTOUCH_ID
+                airtouch_id_request = full_state_msg.FullStateRequest().wrap()
+                await self._socket.send(
+                    message=airtouch_id_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
+            else:
+                # Move into the INIT_VERSION state by sending a ConsoleVersionRequest
+                self._state = _AirTouchState.INIT_VERSION
+                version_request = console_ver_msg.ConsoleVersionRequest().wrap()
+                await self._socket.send(
+                    message=version_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
         elif connected:
             # Request the latest status in case we've been disconnected for a
             # while.
@@ -925,15 +928,26 @@ class AirTouch4(pyairtouch.api.AirTouch):
         # Process messages according to the current state.
         # Unexpected messages are silently ignored.
         match message:
+            case extended_msg.ExtendedMessage(full_state_msg.FullStateMessage()) if (
+                self._state == _AirTouchState.INIT_AIRTOUCH_ID
+            ):
+                self._airtouch_id = message.sub_message.airtouch_id
+                # Move to the next state
+                self._state = _AirTouchState.INIT_VERSION
+                version_request = console_ver_msg.ConsoleVersionRequest().wrap()
+                await self._socket.send(
+                    message=version_request,
+                    retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
+                )
             case extended_msg.ExtendedMessage(
                 console_ver_msg.ConsoleVersionMessage()
             ) if self._state == _AirTouchState.INIT_VERSION:
                 self._console_version = message.sub_message
                 # Move to the next state
                 self._state = _AirTouchState.INIT_GROUP_NAMES
-                group_names_request = extended_msg.ExtendedMessage(
-                    group_names_msg.GroupNamesRequest(group_number="ALL")
-                )
+                group_names_request = group_names_msg.GroupNamesRequest(
+                    group_number="ALL"
+                ).wrap()
                 await self._socket.send(
                     message=group_names_request,
                     retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
@@ -945,9 +959,9 @@ class AirTouch4(pyairtouch.api.AirTouch):
                 self._process_group_names_message(group_names)
                 # Move to the next state
                 self._state = _AirTouchState.INIT_AC_ABILITY
-                ability_request = extended_msg.ExtendedMessage(
-                    ac_ability_msg.AcAbilityRequest(ac_number="ALL")
-                )
+                ability_request = ac_ability_msg.AcAbilityRequest(
+                    ac_number="ALL"
+                ).wrap()
                 await self._socket.send(
                     message=ability_request,
                     retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
@@ -1112,6 +1126,9 @@ class AirTouch4(pyairtouch.api.AirTouch):
         old_version = self._console_version
         self._console_version = console_version
         if old_version != console_version:
+            if self._airtouch_id is None:
+                # The airtouch_id should always be resolved by this stage.
+                raise ValueError("airtouch_id is not defined")
             await _notify_subscribers([s(self._airtouch_id) for s in self._subscribers])
 
     async def _group_status_request_loop(self) -> None:

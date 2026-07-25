@@ -23,7 +23,7 @@ MESSAGE_ID = 0xFF10
 
 
 @dataclass
-class AcErrorInformationMessage(comms.Message):
+class AcErrorInformationMessage(x1F_ext.ExtendedSubMessage1F):
     """The AC Error Information Message."""
 
     ac_number: int
@@ -38,7 +38,7 @@ class AcErrorInformationMessage(comms.Message):
 
 
 @dataclass
-class AcErrorInformationRequest(comms.Message):
+class AcErrorInformationRequest(x1F_ext.ExtendedSubMessage1F):
     """Request for AC Error Information."""
 
     ac_number: int

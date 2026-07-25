@@ -23,7 +23,7 @@ MESSAGE_ID = 0xFF30
 
 
 @dataclass
-class ConsoleVersionMessage(comms.Message):
+class ConsoleVersionMessage(x1F_ext.ExtendedSubMessage1F):
     """The Console Version Message."""
 
     update_available: bool
@@ -41,7 +41,7 @@ class ConsoleVersionMessage(comms.Message):
 
 
 @dataclass
-class ConsoleVersionRequest(comms.Message):
+class ConsoleVersionRequest(x1F_ext.ExtendedSubMessage1F):
     """Request for console version information."""
 
     @property

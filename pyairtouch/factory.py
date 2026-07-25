@@ -1,7 +1,6 @@
 """Factory functions for constructing instances of the AirTouch API."""
 
 import asyncio
-import logging
 from typing import cast
 
 import pyairtouch.api
@@ -14,8 +13,6 @@ import pyairtouch.at5.comms.registry as at5_registry
 import pyairtouch.comms.discovery
 import pyairtouch.comms.socket
 from pyairtouch import comms
-
-_LOGGER = logging.getLogger(__name__)
 
 
 def connect(  # noqa: PLR0913
@@ -33,8 +30,8 @@ def connect(  # noqa: PLR0913
     whether that was previously discovered, or from manually entered
     configuration.
 
-    If the optional parameters are not provided, internally generated values
-    will be used.
+    If the optional parameters are not provided, they will be retrieved via the AirTouch
+    API where possible.
 
     Note: Using `discover(remote_host=host)` is preferred if the reason for a
     manual address is just that the application is operating in an environment
@@ -48,30 +45,23 @@ def connect(  # noqa: PLR0913
         name: Optional human readable AirTouch system name if known.
         serial: Optional serial number for the AirTouch console if known.
     """
-    if not airtouch_id:
-        airtouch_id = "<airtouch-1>"
-
     if not name:
         name = model.value
-
-    if not serial:
-        # If no serial is provided, generate something likely to be reasonably unique.
-        serial = f"{host}-{port}"
 
     match model:
         case pyairtouch.api.AirTouchModel.AIRTOUCH_4:
             factory = _connect_airtouch_4
         case pyairtouch.api.AirTouchModel.AIRTOUCH_5:
             factory = _connect_airtouch_5
-    return factory(host, port, airtouch_id, name, serial)
+    return factory(host, port, airtouch_id, serial, name)
 
 
 def _connect_airtouch_4(
     host: str,
     port: int,
-    airtouch_id: str,
+    airtouch_id: str | None,
+    serial: str | None,
     name: str,
-    serial: str,
 ) -> pyairtouch.api.AirTouch:
     """Connect to an AirTouch 4 console."""
     socket = pyairtouch.comms.socket.AirTouchSocket(
@@ -83,19 +73,19 @@ def _connect_airtouch_4(
 
     return at4_api.AirTouch4(
         loop=asyncio.get_running_loop(),
+        socket=socket,
         airtouch_id=airtouch_id,
         serial=serial,
         name=name,
-        socket=socket,
     )
 
 
 def _connect_airtouch_5(
     host: str,
     port: int,
-    airtouch_id: str,
+    airtouch_id: str | None,
+    serial: str | None,
     name: str,
-    serial: str,
 ) -> at5_api.AirTouch5:
     """Connect to an AirTouch 5 console."""
     socket = pyairtouch.comms.socket.AirTouchSocket(
@@ -107,10 +97,10 @@ def _connect_airtouch_5(
 
     return at5_api.AirTouch5(
         loop=asyncio.get_running_loop(),
+        socket=socket,
         airtouch_id=airtouch_id,
         serial=serial,
         name=name,
-        socket=socket,
     )
 
 

@@ -62,7 +62,7 @@ class AcAbility:
 
 
 @dataclass
-class AcAbilityMessage(comms.Message):
+class AcAbilityMessage(x1F_ext.ExtendedSubMessage1F):
     """The AC Ability Message."""
 
     ac_abilities: Sequence[AcAbility]
@@ -74,7 +74,7 @@ class AcAbilityMessage(comms.Message):
 
 
 @dataclass
-class AcAbilityRequest(comms.Message):
+class AcAbilityRequest(x1F_ext.ExtendedSubMessage1F):
     """A request for AC Ability information."""
 
     ac_number: int | Literal["ALL"]

@@ -1,13 +1,15 @@
-"""Definiton of the Extended Message (0x1F).
+"""Definiton of the Extended Message (0x1F, 0x2F).
 
 Extended messages are used to obtain the available modes and fan speeds of the
 ACs, and error information.
+
+The 0x2F extended messages have been reverse engineered.
 """  # noqa: N999
 
 import struct
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Generic
+from typing import Any, Generic, Protocol, Self
 
 from typing_extensions import override
 
@@ -15,7 +17,8 @@ from pyairtouch import comms
 from pyairtouch.at4.comms.hdr import At4Header
 from pyairtouch.comms import MessageDecodeResult
 
-MESSAGE_ID = 0x1F
+MESSAGE_ID_1F = 0x1F  # Primary Extended Message Identifier
+MESSAGE_ID_2F = 0x2F  # Secondary Extended Message Identifier
 
 
 @dataclass
@@ -32,16 +35,37 @@ class ExtendedMessageSubHeader:
     """
 
 
-@dataclass
+@dataclass(init=False)
 class ExtendedMessage(comms.Message, Generic[comms.Msg]):
     """The Extended Message."""
 
     sub_message: comms.Msg
 
+    def __init__(self, message_id: int, sub_message: comms.Msg) -> None:
+        """Initialise the ExtendedMessage."""
+        self._message_id = message_id
+        self.sub_message = sub_message
+
     @property
     @override
     def message_id(self) -> int:
-        return MESSAGE_ID
+        return MESSAGE_ID_1F
+
+
+class ExtendedSubMessage1F(comms.Message, Protocol):
+    """Base class for 1F extended messages."""
+
+    def wrap(self) -> ExtendedMessage[Self]:
+        """Wrap the sub-message into an ExtendedMessage."""
+        return ExtendedMessage(MESSAGE_ID_1F, self)
+
+
+class ExtendedSubMessage2F(comms.Message, Protocol):
+    """Base class for 2F extended messages."""
+
+    def wrap(self) -> ExtendedMessage[Self]:
+        """Wrap the sub-message into an ExtendedMessage."""
+        return ExtendedMessage(MESSAGE_ID_2F, self)
 
 
 class UnsupportedExtendedDecoder(
@@ -158,6 +182,9 @@ class ExtendedMessageDecoder(
             sub_header,
         )
         return comms.MessageDecodeResult(
-            message=ExtendedMessage(sub_message=sub_message_result.message),
+            message=ExtendedMessage(
+                message_id=header.message_id,
+                sub_message=sub_message_result.message,
+            ),
             remaining=sub_message_result.remaining,
         )
