@@ -18,7 +18,7 @@ from pyairtouch import comms
 def connect(  # noqa: PLR0913
     model: pyairtouch.api.AirTouchModel,
     host: str,
-    port: int,
+    port: int | None = None,
     *,
     airtouch_id: str | None = None,
     name: str | None = None,
@@ -41,6 +41,7 @@ def connect(  # noqa: PLR0913
         model: The model of the AirTouch system being connected to.
         host: Host name of the AirTouch console.
         port: Remote port number of the AirTouch console.
+              If not specified the default port for the AirTouch model will be used.
         airtouch_id: Optional AirTouch system ID if known.
         name: Optional human readable AirTouch system name if known.
         serial: Optional serial number for the AirTouch console if known.
@@ -51,8 +52,10 @@ def connect(  # noqa: PLR0913
     match model:
         case pyairtouch.api.AirTouchModel.AIRTOUCH_4:
             factory = _connect_airtouch_4
+            port = port or at4_api.DEFAULT_PORT_NUMBER
         case pyairtouch.api.AirTouchModel.AIRTOUCH_5:
             factory = _connect_airtouch_5
+            port = port or at5_api.DEFAULT_PORT_NUMBER
     return factory(host, port, airtouch_id, serial, name)
 
 
