@@ -49,7 +49,7 @@ class ExtendedMessage(comms.Message, Generic[comms.Msg]):
     @property
     @override
     def message_id(self) -> int:
-        return MESSAGE_ID_1F
+        return self._message_id
 
 
 class ExtendedSubMessage1F(comms.Message, Protocol):
@@ -110,7 +110,7 @@ class ExtendedMessageEncoder(comms.MessageEncoder[At4Header, ExtendedMessage[Any
         sub_message_encoder = self._encoder_map.get(sub_message.message_id)
         if not sub_message_encoder:
             raise NotImplementedError(
-                f"Sub-message 0x{sub_message.message_id:02x} not implemented."
+                f"Sub-message 0x{sub_message.message_id:04x} not implemented."
             )
         return sub_message_encoder
 

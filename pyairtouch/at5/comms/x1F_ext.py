@@ -93,7 +93,7 @@ class ExtendedMessageEncoder(comms.MessageEncoder[At5Header, ExtendedMessage[Any
         sub_message_encoder = self._encoder_map.get(sub_message.message_id)
         if not sub_message_encoder:
             raise NotImplementedError(
-                f"Sub-message 0x{sub_message.message_id:02x} not implemented."
+                f"Sub-message 0x{sub_message.message_id:04x} not implemented."
             )
         return sub_message_encoder
 
