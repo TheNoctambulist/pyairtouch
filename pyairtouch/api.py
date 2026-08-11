@@ -573,7 +573,12 @@ class AirTouch(Protocol):
 
     @property
     def initialised(self) -> bool:
-        """Whether the AirTouch system has been initialised."""
+        """Whether the interface to the AirTouch system has been initialised."""
+        ...
+
+    @property
+    def connected(self) -> bool:
+        """Whether the interface to the AirTouch system is currently connected."""
         ...
 
     @property
@@ -647,8 +652,8 @@ class AirTouch(Protocol):
     def subscribe(self, subscriber: AirTouchSubscriber) -> None:
         """Subscribe to notifications of updates to the AirTouch.
 
-        The subscriber will be notified if the console versions or update status
-        changes.
+        The subscriber will be notified if the connected state, console
+        versions or update status changes.
 
         Has no effect if the subscriber is already subscribed.
         """

@@ -905,6 +905,11 @@ class AirTouch5(pyairtouch.api.AirTouch):
 
     @property
     @override
+    def connected(self) -> bool:
+        return self._socket.is_connected
+
+    @property
+    @override
     def airtouch_id(self) -> str | None:
         return self._airtouch_id
 
@@ -992,6 +997,11 @@ class AirTouch5(pyairtouch.api.AirTouch):
                 message=ControlStatusMessage(zone_status_msg.ZoneStatusRequest()),
                 retry_policy=pyairtouch.comms.socket.RETRY_CONNECTED,
             )
+
+        # Only notify the subscribers if the connection status changes after
+        # initialisation has completed.
+        if self._airtouch_id and self.initialised:
+            await _notify_subscribers([s(self._airtouch_id) for s in self._subscribers])
 
     async def _message_received(  # noqa: C901, PLR0912, PLR0915
         self,
