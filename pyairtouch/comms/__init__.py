@@ -76,14 +76,14 @@ class HeaderEncoder(Protocol[Hdr_contra]):
 
 
 @dataclass
-class HeaderDecodeResult(Generic[Hdr_co]):
+class HeaderDecodeResult(Generic[Hdr]):
     """The result from a header decode operation.
 
     Includes fields to capture the decoded data, checksum data, and any
     remaining bytes that were not decoded.
     """
 
-    header: Hdr_co
+    header: Hdr
     """The decoded header."""
 
     remaining: bytes
@@ -104,6 +104,33 @@ class HeaderDecodeResult(Generic[Hdr_co]):
             )
 
 
+class HeaderDecodeResultProto(Protocol[Hdr_co]):
+    """Read-only view of a HeaderDecodeResult to satisfy covariant typing."""
+
+    @property
+    def header(self) -> Hdr_co:
+        """The decoded header."""
+        ...
+
+    @property
+    def remaining(self) -> bytes:
+        """Any remaining bytes in the buffer."""
+        ...
+
+    @property
+    def checksum_data(self) -> bytes:
+        """The bytes from the header that contribute to the checksum."""
+        ...
+
+    def assert_complete(self) -> None:
+        """Assert that the buffer has been fully decoded.
+
+        Raises:
+            DecodeError if there are bytes remaining in the buffer.
+        """
+        ...
+
+
 class HeaderDecoder(Protocol[Hdr_co]):
     """Decoder for message headers."""
 
@@ -112,7 +139,7 @@ class HeaderDecoder(Protocol[Hdr_co]):
         """Returns the length of the header in bytes."""
         ...
 
-    def decode(self, buffer: bytes | bytearray) -> HeaderDecodeResult[Hdr_co]:
+    def decode(self, buffer: bytes | bytearray) -> HeaderDecodeResultProto[Hdr_co]:
         """Decodes the header from the buffer.
 
         Returns the decoded header and any remaining bytes in the buffer.
@@ -133,14 +160,14 @@ class MessageEncoder(Protocol[Hdr_contra, Msg_contra]):
 
 
 @dataclass
-class MessageDecodeResult(Generic[Msg_co]):
+class MessageDecodeResult(Generic[Msg]):
     """The result from a message decode operation.
 
     Includes fields to capture the decoded data and any remaining bytes that
     were not decoded.
     """
 
-    message: Msg_co
+    message: Msg
     """The decoded message."""
 
     remaining: bytes
@@ -158,12 +185,34 @@ class MessageDecodeResult(Generic[Msg_co]):
             )
 
 
+class MessageDecodeResultProto(Protocol[Msg_co]):
+    """Read-only view of MessageDecodeResult to satisfy covariant typing."""
+
+    @property
+    def message(self) -> Msg_co:
+        """The decoded message."""
+        ...
+
+    @property
+    def remaining(self) -> bytes:
+        """Any remaining bytes in the buffer."""
+        ...
+
+    def assert_complete(self) -> None:
+        """Assert that the buffer has been fully decoded.
+
+        Raises:
+            DecodeError if there are bytes remaining in the buffer.
+        """
+        ...
+
+
 class MessageDecoder(Protocol[Hdr_contra, Msg_co]):
     """Decoder for messages."""
 
     def decode(
         self, buffer: bytes | bytearray, header: Hdr_contra
-    ) -> MessageDecodeResult[Msg_co]:
+    ) -> MessageDecodeResultProto[Msg_co]:
         """Decodes a message from the buffer.
 
         Returns:
