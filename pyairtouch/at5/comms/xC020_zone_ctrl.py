@@ -35,6 +35,15 @@ class ZonePowerControl(enum.Enum):
         return ZonePowerControl.UNCHANGED
 
 
+class ZoneControlMethodCommand(enum.Enum):
+    """Options for setting the control method of a zone."""
+
+    CHANGE = 1
+    DAMPER = 2
+    TEMPERATURE = 3
+    UNCHANGED = 0
+
+
 class ZoneIncreaseDecrease(enum.Enum):
     """Increase or decrease the current zone setting by one unit.
 
@@ -73,6 +82,7 @@ class ZoneControlData:
     zone_number: int
     zone_power: ZonePowerControl
     zone_setting: ZoneSetting
+    control_method: ZoneControlMethodCommand = ZoneControlMethodCommand.UNCHANGED
 
 
 @dataclass
@@ -123,7 +133,7 @@ class ZoneControlEncoder(xC0_ctrl_status.ControlStatusSubEncoder[ZoneControlMess
             encoded_setting, setting_value = self._encode_zone_setting(
                 zone.zone_setting
             )
-            b2 = encoded_setting + encoded_power
+            b2 = encoded_setting | (zone.control_method.value << 3) | encoded_power
             buffer.extend(_STRUCT.pack(zone.zone_number, b2, setting_value))
 
         return bytes(buffer)
@@ -170,6 +180,7 @@ class ZoneControlDecoder(
                     zone_number=zone_number,
                     zone_power=self._decode_zone_power(b2),
                     zone_setting=self._decode_zone_setting(b2, setting_raw),
+                    control_method=ZoneControlMethodCommand((b2 >> 3) & 0x03),
                 )
             )
 

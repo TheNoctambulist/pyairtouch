@@ -76,3 +76,21 @@ If you would like to make a donation as appreciation of my work, please use one 
 <a href="https://coindrop.to/thenoctambulist" target="_blank"><img src="https://coindrop.to/embed-button.png" style="border-radius: 10px; height: 57px !important;width: 229px !important;" alt="Coindrop.to me"/></a>
 <a href="https://www.buymeacoffee.com/thenoctambulist" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-blue.png" style="border-radius: 10px; margin-left: 25px" alt="Buy Me A Coffee" height="57px" width="242px"/></a>
 
+
+### Switching an AirTouch 5 zone's control method
+
+AirTouch 5 supports an explicit change between fixed damper percentage and
+temperature control for zones with a temperature sensor. Use the optional
+capability to keep code compatible with other AirTouch models:
+
+```python
+from pyairtouch import ZoneControlMethod, ZoneControlMethodSwitching
+
+if zone.has_temp_sensor and isinstance(zone, ZoneControlMethodSwitching):
+    await zone.set_control_method(ZoneControlMethod.TEMPERATURE)
+```
+
+The command leaves zone power and target fields unchanged, so there is no need
+to copy the currently reported damper opening into a fixed target. Use the next
+zone update to check `zone.control_method` and the settings AirTouch reports.
+The existing temperature and damper setters retain their wire behaviour.

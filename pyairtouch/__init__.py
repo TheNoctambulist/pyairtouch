@@ -34,6 +34,7 @@ from pyairtouch.api import (
     UpdateSubscriber,
     Zone,
     ZoneControlMethod,
+    ZoneControlMethodSwitching,
     ZonePowerState,
 )
 from pyairtouch.factory import connect, discover
@@ -52,6 +53,6 @@ __all__ = [
 
     # API Interfaces
     "AirTouchSubscriber", "UpdateSubscriber",
-    "Zone", "AirConditioner", "AirTouch"
+    "Zone", "ZoneControlMethodSwitching", "AirConditioner", "AirTouch"
 ]
 # fmt: on

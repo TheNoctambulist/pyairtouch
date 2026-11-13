@@ -8,7 +8,7 @@ import datetime
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 # fmt: off
 __all__ = [
@@ -20,7 +20,7 @@ __all__ = [
 
     # API Interfaces
     "AirTouchSubscriber", "UpdateSubscriber",
-    "Zone", "AirConditioner", "AirTouch"
+    "Zone", "ZoneControlMethodSwitching", "AirConditioner", "AirTouch"
 ]
 # fmt: on
 
@@ -149,6 +149,23 @@ UpdateSubscriber = Callable[[int], Awaitable[Any]]
 
 The subscriber will be passed the zone or AC ID that has been updated.
 """
+
+
+@runtime_checkable
+class ZoneControlMethodSwitching(Protocol):
+    """Optional capability for zones that support explicit method changes."""
+
+    async def set_control_method(self, method: ZoneControlMethod) -> None:
+        """Request a method change without changing power or setting values.
+
+        The updated method is reported by a subsequent zone status message.
+        A successful return does not confirm the change.
+
+        Raises:
+            ValueError: If the method is not supported for this zone.
+            TypeError: If method is not a ZoneControlMethod.
+        """
+        ...
 
 
 class Zone(Protocol):
