@@ -60,6 +60,14 @@ _ZONE_CONTROL_METHOD_MAPPING = {
         pyairtouch.api.ZoneControlMethod.TEMPERATURE
     ),
 }
+_API_ZONE_CONTROL_METHOD_MAPPING = {
+    pyairtouch.api.ZoneControlMethod.DAMPER: (
+        zone_ctrl_msg.ZoneControlMethodCommand.DAMPER
+    ),
+    pyairtouch.api.ZoneControlMethod.TEMPERATURE: (
+        zone_ctrl_msg.ZoneControlMethodCommand.TEMPERATURE
+    ),
+}
 _SENSOR_BATTERY_STATUS_MAPPING = {
     zone_status_msg.SensorBatteryStatus.NORMAL: (
         pyairtouch.api.SensorBatteryStatus.NORMAL
@@ -208,6 +216,23 @@ class At5Zone(pyairtouch.api.Zone):
             zone_setting=zone_ctrl_msg.ZoneDamperControl(open_percentage)
         )
 
+    async def set_control_method(
+        self, method: pyairtouch.api.ZoneControlMethod
+    ) -> None:
+        """Set the method using AirTouch 5's independent control-type field."""
+        if not isinstance(method, pyairtouch.api.ZoneControlMethod):
+            raise TypeError("method must be a ZoneControlMethod")
+        if (
+            method == pyairtouch.api.ZoneControlMethod.TEMPERATURE
+            and not self.has_temp_sensor
+        ):
+            raise ValueError("Changing control method requires a temperature sensor")
+        if method == self.control_method:
+            return
+        await self._send_zone_control_message(
+            control_method=_API_ZONE_CONTROL_METHOD_MAPPING[method]
+        )
+
     @override
     def subscribe(self, subscriber: pyairtouch.api.UpdateSubscriber) -> None:
         self._subscribers.add(subscriber)
@@ -222,6 +247,9 @@ class At5Zone(pyairtouch.api.Zone):
             zone_ctrl_msg.ZonePowerControl.UNCHANGED
         ),
         zone_setting: zone_ctrl_msg.ZoneSetting = None,
+        control_method: zone_ctrl_msg.ZoneControlMethodCommand = (
+            zone_ctrl_msg.ZoneControlMethodCommand.UNCHANGED
+        ),
     ) -> None:
         message = ControlStatusMessage(
             zone_ctrl_msg.ZoneControlMessage(
@@ -230,6 +258,7 @@ class At5Zone(pyairtouch.api.Zone):
                         zone_number=self.zone_id,
                         zone_power=zone_power,
                         zone_setting=zone_setting,
+                        control_method=control_method,
                     )
                 ]
             )
